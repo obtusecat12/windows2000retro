@@ -1,0 +1,730 @@
+@font-face {
+  font-family: 'Win2kTahoma';
+  src: url('/fonts/tahoma.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Win2kTahoma';
+  src: url('/fonts/tahomabd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Win2kMSSans';
+  src: url('/fonts/ms_sans_serif.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Win2kMSSans';
+  src: url('/fonts/ms_sans_serif_bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Win2kZpix';
+  src: url('/fonts/zpix.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Win2kFixedsys';
+  src: url('/fonts/fixedsys-excelsior-301.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --w2k-desktop: #3a6ea5;
+  --w2k-face: #d4d0c8;
+  --w2k-highlight: #ffffff;
+  --w2k-light: #e8e6e1;
+  --w2k-shadow: #808080;
+  --w2k-dark-shadow: #404040;
+  --w2k-title-active-start: #0a246a;
+  --w2k-title-active-end: #a6caf0;
+  --w2k-title-active-text: #ffffff;
+  --w2k-title-inactive-start: #808080;
+  --w2k-title-inactive-end: #c0c0c0;
+  --w2k-title-inactive-text: #d4d0c8;
+  --w2k-window-bg: #ffffff;
+  --w2k-window-text: #000000;
+  --w2k-menu-bg: #d4d0c8;
+  --w2k-menu-text: #000000;
+  --w2k-selection-bg: #0a246a;
+  --w2k-selection-text: #ffffff;
+  --w2k-font: 'Win2kZpix', 'Win2kMSSans', 'SimSun', '宋体', 'Win2kTahoma', sans-serif;
+  --w2k-mono: 'Win2kFixedsys', 'Win2kZpix', 'NSimSun', 'SimSun', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--w2k-font);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--w2k-window-text);
+  user-select: none;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+  font-variant-ligatures: none;
+}
+
+@layer components {
+  /* Year-2000 Full-Screen Spherical PC Shadow-Mask CRT Optics */
+  .w2k-crt-screen {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .w2k-crt-screen.is-crt-optics {
+    filter: url(#w2k-crt-optics);
+  }
+
+  .w2k-crt-micrograin {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(255, 255, 255, 0.03) 0.5px,
+      rgba(0, 0, 0, 0.045) 1.5px
+    );
+    background-size: 3px 3px;
+    opacity: 0.45;
+  }
+
+  .w2k-crt-spherical-glass {
+    background:
+      radial-gradient(
+        ellipse 72% 46% at 26% 15%,
+        rgba(232, 242, 255, 0.044) 0%,
+        rgba(232, 242, 255, 0.015) 45%,
+        transparent 75%
+      ),
+      radial-gradient(
+        ellipse 93% 91% at 50% 49%,
+        rgba(255, 255, 255, 0) 56%,
+        rgba(10, 14, 20, 0.085) 84%,
+        rgba(5, 8, 13, 0.25) 100%
+      );
+    box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Classic 3D Bevels */
+  .w2k-outset {
+    background-color: var(--w2k-face);
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow: inset 1px 1px 0 var(--w2k-light), inset -1px -1px 0 var(--w2k-shadow);
+  }
+
+  .w2k-window-frame {
+    background-color: var(--w2k-face);
+    border-top: 1px solid var(--w2k-light);
+    border-left: 1px solid var(--w2k-light);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow:
+      inset 1px 1px 0 var(--w2k-highlight),
+      inset -1px -1px 0 var(--w2k-shadow),
+      1px 1px 0 rgba(0, 0, 0, 0.22);
+    padding: 3px;
+  }
+
+  .w2k-inset {
+    background-color: var(--w2k-window-bg);
+    color: var(--w2k-window-text);
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+    box-shadow: inset 1px 1px 0 var(--w2k-dark-shadow), inset -1px -1px 0 var(--w2k-face);
+  }
+
+  .w2k-inset-shallow {
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+  }
+
+  .w2k-sunken-bar {
+    background-color: var(--w2k-face);
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+  }
+
+  /* Title Bar Gradient (Windows 2000 signature) */
+  .w2k-titlebar {
+    height: 18px;
+    padding: 2px 3px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--w2k-title-active-start) 0%,
+      var(--w2k-title-active-end) 100%
+    );
+    color: var(--w2k-title-active-text);
+    font-weight: 700;
+    font-size: 12px;
+    cursor: default;
+  }
+
+  .w2k-titlebar.inactive {
+    background: linear-gradient(
+      90deg,
+      var(--w2k-title-inactive-start) 0%,
+      var(--w2k-title-inactive-end) 100%
+    );
+    color: var(--w2k-title-inactive-text);
+  }
+
+  /* Standard Win2K Push Button */
+  .w2k-btn {
+    background-color: var(--w2k-face);
+    color: var(--w2k-menu-text);
+    font-family: var(--w2k-font);
+    font-size: 12px;
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow: inset -1px -1px 0 var(--w2k-shadow), inset 1px 1px 0 var(--w2k-light);
+    padding: 3px 12px;
+    min-height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: default;
+    outline: none;
+    white-space: nowrap;
+  }
+
+  .w2k-btn:active:not(:disabled),
+  .w2k-btn.pressed:not(:disabled) {
+    border-top: 1px solid var(--w2k-dark-shadow);
+    border-left: 1px solid var(--w2k-dark-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+    box-shadow: inset 1px 1px 0 var(--w2k-shadow);
+    padding: 4px 11px 2px 13px;
+  }
+
+  .w2k-btn.default-btn {
+    outline: 1px solid #000000;
+    outline-offset: -1px;
+  }
+
+  .w2k-btn:focus-visible {
+    outline: 1px dotted #000000;
+    outline-offset: -4px;
+  }
+
+  .w2k-btn:disabled {
+    color: var(--w2k-shadow);
+    text-shadow: 1px 1px 0 var(--w2k-highlight);
+  }
+
+  /* Title bar small 16x14 buttons (matches Win2K / 98.css exact geometry) */
+  .w2k-win-btn {
+    width: 16px;
+    height: 14px;
+    padding: 0;
+    background-color: var(--w2k-face);
+    color: #000000;
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow: inset -1px -1px 0 var(--w2k-shadow), inset 1px 1px 0 var(--w2k-light);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    flex-shrink: 0;
+  }
+
+  .w2k-win-btn:active {
+    border-top: 1px solid var(--w2k-dark-shadow);
+    border-left: 1px solid var(--w2k-dark-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+    box-shadow: inset 1px 1px 0 var(--w2k-shadow);
+    padding-top: 1px;
+    padding-left: 1px;
+  }
+
+  /* Win2K Flat Explorer / IE Toolbar Button */
+  .w2k-toolbar-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--w2k-menu-text);
+    font-family: var(--w2k-font);
+    font-size: 11px;
+    padding: 2px 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  .w2k-toolbar-btn:hover:not(:disabled) {
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-shadow);
+    border-bottom: 1px solid var(--w2k-shadow);
+  }
+
+  .w2k-toolbar-btn:active:not(:disabled),
+  .w2k-toolbar-btn.active:not(:disabled) {
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+  }
+
+  .w2k-toolbar-btn:disabled {
+    color: var(--w2k-shadow);
+    text-shadow: 1px 1px 0 var(--w2k-highlight);
+  }
+
+  /* Authentic IE5 / Explorer 20x20 sprite (grayscale at rest, 24-bit color on hover) */
+  .w2k-browse-sprite {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    background-image: url('/icons/ui/browse-ui-icons-grayscale.png');
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+  }
+
+  .w2k-browse-sprite[data-always-color='true'],
+  .w2k-toolbar-btn:hover:not(:disabled) .w2k-browse-sprite,
+  .w2k-toolbar-btn.active:not(:disabled) .w2k-browse-sprite {
+    background-image: url('/icons/ui/browse-ui-icons.png');
+  }
+
+  .w2k-browse-sprite.is-disabled {
+    opacity: 0.45;
+  }
+
+  /* Authentic Go Button Green Arrow */
+  .w2k-go-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 1px 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    cursor: default;
+    color: var(--w2k-menu-text);
+  }
+
+  .w2k-go-btn:hover {
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-shadow);
+    border-bottom: 1px solid var(--w2k-shadow);
+  }
+
+  .w2k-go-btn:active {
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+  }
+
+  .w2k-go-icon {
+    width: 18px;
+    height: 16px;
+    display: inline-block;
+    background-image: url('/win2k-ui/go-hot.png');
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    filter: saturate(0.92);
+  }
+
+  .w2k-go-btn:hover .w2k-go-icon {
+    background-image: url('/win2k-ui/go-hot.png');
+    filter: brightness(1.08) saturate(1.1);
+  }
+
+  /* Text inputs & selects */
+  .w2k-input,
+  .w2k-select {
+    background-color: var(--w2k-window-bg);
+    color: var(--w2k-window-text);
+    font-family: var(--w2k-font);
+    font-size: 12px;
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+    box-shadow: inset 1px 1px 0 var(--w2k-dark-shadow);
+    padding: 2px 4px;
+    outline: none;
+    border-radius: 0;
+  }
+
+  /* Groupbox (Fieldset) */
+  .w2k-fieldset {
+    border: 1px solid var(--w2k-shadow);
+    box-shadow: inset 1px 1px 0 var(--w2k-highlight), 1px 1px 0 var(--w2k-highlight);
+    padding: 10px 10px 8px;
+    margin: 0;
+  }
+
+  .w2k-fieldset > legend {
+    padding: 0 4px;
+    color: var(--w2k-menu-text);
+    font-size: 12px;
+  }
+
+  /* Tabs */
+  .w2k-tab {
+    background-color: var(--w2k-face);
+    color: var(--w2k-menu-text);
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 0;
+    padding: 3px 10px;
+    margin-top: 2px;
+    font-size: 12px;
+    cursor: default;
+    position: relative;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+  }
+
+  .w2k-tab.active {
+    margin-top: 0;
+    padding-top: 5px;
+    padding-bottom: 4px;
+    margin-bottom: -1px;
+    z-index: 2;
+  }
+
+  .w2k-tab-panel {
+    background-color: var(--w2k-face);
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow: inset -1px -1px 0 var(--w2k-shadow);
+    padding: 12px;
+  }
+
+  /* Menu Bar & Popup Menu */
+  .w2k-menubar {
+    display: flex;
+    align-items: center;
+    padding: 1px 2px;
+    background-color: var(--w2k-menu-bg);
+    color: var(--w2k-menu-text);
+    border-bottom: 1px solid var(--w2k-shadow);
+    box-shadow: 0 1px 0 var(--w2k-highlight);
+    gap: 2px;
+  }
+
+  .w2k-menubar-item {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--w2k-menu-text);
+    font-family: var(--w2k-font);
+    font-size: 12px;
+    padding: 1px 6px;
+    cursor: default;
+  }
+
+  .w2k-menubar-item:hover,
+  .w2k-menubar-item.open {
+    background-color: var(--w2k-selection-bg);
+    color: var(--w2k-selection-text);
+  }
+
+  .w2k-menu-popup {
+    background-color: var(--w2k-menu-bg);
+    color: var(--w2k-menu-text);
+    border-top: 1px solid var(--w2k-light);
+    border-left: 1px solid var(--w2k-light);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow:
+      inset 1px 1px 0 var(--w2k-highlight),
+      inset -1px -1px 0 var(--w2k-shadow),
+      2px 2px 2px rgba(0, 0, 0, 0.28);
+    padding: 2px;
+    min-width: 165px;
+  }
+
+  .w2k-menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 12px 3px 24px;
+    background: transparent;
+    border: none;
+    color: var(--w2k-menu-text);
+    font-family: var(--w2k-font);
+    font-size: 12px;
+    text-align: left;
+    cursor: default;
+    position: relative;
+    white-space: nowrap;
+  }
+
+  .w2k-menu-item:hover:not(:disabled) {
+    background-color: var(--w2k-selection-bg);
+    color: var(--w2k-selection-text);
+  }
+
+  .w2k-menu-item:disabled {
+    color: var(--w2k-shadow);
+    text-shadow: 1px 1px 0 var(--w2k-highlight);
+  }
+
+  .w2k-menu-sep {
+    height: 1px;
+    background-color: var(--w2k-shadow);
+    border-bottom: 1px solid var(--w2k-highlight);
+    margin: 3px 2px;
+  }
+
+  /* Taskbar */
+  .w2k-taskbar {
+    height: 28px;
+    background-color: var(--w2k-face);
+    border-top: 1px solid var(--w2k-highlight);
+    box-shadow: inset 0 1px 0 var(--w2k-light);
+    display: flex;
+    align-items: center;
+    padding: 2px 3px;
+    gap: 4px;
+  }
+
+  .w2k-task-btn {
+    height: 22px;
+    padding: 0 6px;
+    background-color: var(--w2k-face);
+    color: var(--w2k-menu-text);
+    font-family: var(--w2k-font);
+    font-size: 12px;
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow: inset -1px -1px 0 var(--w2k-shadow);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 160px;
+    min-width: 72px;
+    flex: 1 1 0;
+    cursor: default;
+  }
+
+  .w2k-task-btn.active {
+    font-weight: 700;
+    background-image: repeating-conic-gradient(
+      var(--w2k-highlight) 0% 25%,
+      var(--w2k-face) 0% 50%
+    );
+    background-size: 2px 2px;
+    border-top: 1px solid var(--w2k-dark-shadow);
+    border-left: 1px solid var(--w2k-dark-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+    box-shadow: inset 1px 1px 0 var(--w2k-shadow);
+  }
+
+  /* Authentic Windows 2000 Start Menu Left Vertical Sidebar (ntstrtbk.bmp, 21x233) */
+  .w2k-start-banner {
+    width: 21px;
+    min-height: 233px;
+    background-color: #000000;
+    background-image: url('/win2k-ui/start-banner.png');
+    background-position: bottom left;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+  }
+
+  /* Scrollbars (Classic Win2K) */
+  .w2k-scroll::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+  }
+
+  .w2k-scroll::-webkit-scrollbar-track {
+    background-color: var(--w2k-light);
+    background-image: repeating-conic-gradient(#ffffff 0% 25%, #d4d0c8 0% 50%);
+    background-size: 2px 2px;
+  }
+
+  .w2k-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--w2k-face);
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+    box-shadow: inset -1px -1px 0 var(--w2k-shadow);
+  }
+
+  .w2k-scroll::-webkit-scrollbar-button {
+    background-color: var(--w2k-face);
+    width: 16px;
+    height: 16px;
+    border-top: 1px solid var(--w2k-highlight);
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-dark-shadow);
+    border-bottom: 1px solid var(--w2k-dark-shadow);
+  }
+
+  /* Desktop Icon Label */
+  .w2k-desktop-label {
+    color: #ffffff;
+    text-shadow:
+      1px 1px 0 #000000,
+      0 1px 2px rgba(0, 0, 0, 0.92),
+      0 0 2px rgba(0, 0, 0, 0.72);
+    font-size: 12px;
+    line-height: 1.25;
+    text-align: center;
+    word-break: break-word;
+    padding: 1px 3px;
+  }
+
+  .w2k-desktop-icon.selected .w2k-desktop-label {
+    background-color: var(--w2k-selection-bg);
+    color: var(--w2k-selection-text);
+    text-shadow: none;
+    outline: 1px dotted #ffff00;
+  }
+
+  .w2k-desktop-icon.selected img {
+    filter: drop-shadow(0 0 0 #0a246a) brightness(0.86) contrast(1.08);
+  }
+
+  /* Classic Separator Gripper in Taskbar/Toolbar */
+  .w2k-gripper {
+    width: 3px;
+    height: 18px;
+    border-left: 1px solid var(--w2k-highlight);
+    border-right: 1px solid var(--w2k-shadow);
+    background-color: var(--w2k-face);
+  }
+
+  .w2k-divider-v {
+    width: 2px;
+    height: 18px;
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+  }
+
+  /* Authentic CMD.EXE / Notepad Fixedsys + Zpix 12px/16px raster monospace */
+  .w2k-cmd-font {
+    font-family: 'Win2kFixedsys', 'Win2kZpix', 'NSimSun', 'SimSun', monospace;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    font-variant-ligatures: none;
+    text-rendering: optimizeSpeed;
+  }
+
+  /* Authentic Win2K 13x13 3D Sunken Checkbox (zero modern Chromium blue pill) */
+  .w2k-checkbox-box {
+    width: 13px;
+    height: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    border-top: 1px solid var(--w2k-shadow);
+    border-left: 1px solid var(--w2k-shadow);
+    border-right: 1px solid var(--w2k-highlight);
+    border-bottom: 1px solid var(--w2k-highlight);
+    box-shadow: inset 1px 1px 0 var(--w2k-dark-shadow), inset -1px -1px 0 var(--w2k-face);
+    flex-shrink: 0;
+  }
+
+  .w2k-checkbox-box.disabled {
+    background-color: var(--w2k-face);
+  }
+
+  /* Authentic Windows 2000 Logon / Boot animated tri-color sweep bar */
+  @keyframes w2kRibbonSweep {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
+
+  .w2k-ribbon-sweep {
+    height: 5px;
+    width: 100%;
+    background: linear-gradient(
+      90deg,
+      #1b4f9c 0%,
+      #59a8e8 22%,
+      #3bb24a 45%,
+      #e86f24 68%,
+      #a8cff2 85%,
+      #1b4f9c 100%
+    );
+    background-size: 200% 100%;
+    animation: w2kRibbonSweep 2.4s linear infinite;
+  }
+
+  @keyframes w2kBootBlockSlide {
+    0% {
+      transform: translateX(-28px);
+    }
+    100% {
+      transform: translateX(412px);
+    }
+  }
+
+  .w2k-boot-pulse-block {
+    width: 22px;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.15), #ffffff 55%, rgba(255, 255, 255, 0.2));
+    animation: w2kBootBlockSlide 1.3s linear infinite;
+  }
+}
