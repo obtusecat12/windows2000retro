@@ -829,7 +829,7 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
       )}
 
       {/* Signature Pure #000000 Bottom Info Panel matching ref-mpc64.png */}
-      <div className="mx-[2px] mt-0.5 px-2 py-1 w2k-inset bg-black text-[#DCDCDC] font-mono">
+      <div className="mx-[2px] mt-0.5 px-2 py-1 w2k-inset bg-black text-[#DCDCDC] font-[var(--w2k-font)]">
         <div className="grid grid-cols-[50px_minmax(0,1fr)] items-center text-[11px] leading-[14px]">
           <span className="text-right pr-1 text-white">节目:</span>
           <span className="truncate text-white">{activeVideo.title}</span>
@@ -955,7 +955,7 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
                 <Win2kIcon kind="mplayer" size={32} />
                 {showAboutModal ? (
                   <div className="space-y-1">
-                    <div className="font-mono text-[11px] text-black">
+                    <div className="font-[var(--w2k-font)] text-[11px] text-black">
                       <div>Windows Media Player</div>
                       <div>版权所有 (C) 1992-1999 Microsoft Corp.</div>
                       <div>版本:  6.4.09.1109</div>
