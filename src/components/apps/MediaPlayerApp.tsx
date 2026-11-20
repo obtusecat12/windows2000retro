@@ -621,7 +621,7 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
       {/* Main #000000 Sunken Video Viewport */}
       <div className="flex-1 min-h-0 flex flex-col m-[2px] w2k-inset bg-black overflow-hidden relative">
         <div
-          className="flex-1 min-h-0 flex items-center justify-center bg-black relative overflow-auto"
+          className="flex-1 min-h-[64px] flex items-center justify-center bg-black relative overflow-auto"
           onClick={() => {
             if (playState === 'stopped') handlePlay();
             else handlePause();
@@ -683,7 +683,7 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
           <div
             aria-label="播放列表"
             onClick={(e) => e.stopPropagation()}
-            className="h-[88px] shrink-0 bg-[#14181E] border-t border-[#404040] text-[#DCDCDC] flex flex-col"
+            className="h-[88px] shrink min-h-[56px] bg-[#14181E] border-t border-[#404040] text-[#DCDCDC] flex flex-col"
           >
             <div className="px-2 py-0.5 bg-[var(--w2k-face)] text-black text-[11px] flex items-center justify-between border-b border-[var(--w2k-shadow)]">
               <span>播放列表 ({TROPICAL_VIDEOS.length} 个假期视频)</span>

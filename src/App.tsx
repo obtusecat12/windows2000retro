@@ -314,7 +314,7 @@ const APP_BLUEPRINTS: Record<AppId, AppBlueprint> = {
     width: 460,
     height: 410,
     minWidth: 340,
-    minHeight: 290,
+    minHeight: 350,
     resizable: true,
     maximizable: true,
     minimizable: true,
