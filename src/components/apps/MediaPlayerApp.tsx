@@ -540,6 +540,84 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
         </div>
       </div>
 
+      {showControls && (
+        <div
+          aria-label="导航工具栏"
+          className="h-[25px] shrink-0 flex items-center gap-1 px-1 bg-[var(--w2k-face)] border-b border-[var(--w2k-shadow)] shadow-[0_1px_0_var(--w2k-highlight)]"
+        >
+          <button
+            type="button"
+            title="后退"
+            aria-label="后退"
+            disabled
+            className="w-[23px] h-[21px] p-0 flex items-center justify-center bg-transparent border border-transparent disabled:opacity-45 cursor-default"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+              <path d="M14 7H6V4L1 8l5 4V9h8z" fill="#808080" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            title="前进"
+            aria-label="前进"
+            disabled
+            className="w-[23px] h-[21px] p-0 flex items-center justify-center bg-transparent border border-transparent disabled:opacity-45 cursor-default"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+              <path d="M2 7h8V4l5 4-5 4V9H2z" fill="#808080" />
+            </svg>
+          </button>
+          <div className="w2k-divider-v mx-0.5" />
+          <div className="ml-auto flex items-center gap-1 pr-1">
+            <button
+              type="button"
+              title="电台"
+              aria-label="电台"
+              disabled
+              className="h-[21px] px-1 flex items-center gap-1 bg-transparent border border-transparent text-[11px] text-[#404040] disabled:opacity-75 cursor-default"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+                <path d="M6 2h1v4H6zM2 7h12v7H2z" fill="#000000" />
+                <path d="M3 8h10v5H3z" fill="#D4D0C8" />
+                <circle cx="8" cy="10" r="2" fill="#008080" />
+                <path d="M8 6a4 4 0 0 1 4 4h-1a3 3 0 0 0-3-3z" fill="#000080" />
+              </svg>
+              电台
+            </button>
+            <button
+              type="button"
+              title="音乐"
+              aria-label="音乐"
+              disabled
+              className="h-[21px] px-1 flex items-center gap-1 bg-transparent border border-transparent text-[11px] text-[#404040] disabled:opacity-75 cursor-default"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+                <path d="M8 2h6v9h-1V4L8 5v7H7V4z" fill="#000000" />
+                <path d="M8 3h5v1L8 5z" fill="#CC0000" />
+                <ellipse cx="5" cy="12" rx="3" ry="2" fill="#008000" />
+                <ellipse cx="12" cy="11" rx="2" ry="2" fill="#008000" />
+              </svg>
+              音乐
+            </button>
+            <button
+              type="button"
+              title="媒体指南"
+              aria-label="媒体指南"
+              disabled
+              className="h-[21px] px-1 flex items-center gap-1 bg-transparent border border-transparent text-[11px] text-[#404040] disabled:opacity-75 cursor-default"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+                <path d="M2 2h12v12H2z" fill="#000080" />
+                <path d="M3 3h10v10H3z" fill="#FFFFFF" />
+                <path d="M4 4h8v5H4z" fill="#008080" />
+                <path d="M4 10h7v1H4zM4 12h5v1H4z" fill="#808080" />
+              </svg>
+              媒体指南
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main #000000 Sunken Video Viewport */}
       <div className="flex-1 min-h-0 flex flex-col m-[2px] w2k-inset bg-black overflow-hidden relative">
         <div
@@ -659,15 +737,13 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
             aria-valuemax={Math.round(duration || activeVideo.durationSec)}
             aria-valuenow={Math.round(currentTime)}
             onMouseDown={(e) => startSliderDrag(e, updateSeekFromClientX)}
-            className="h-[18px] relative flex items-center cursor-default"
+            className="h-[11px] relative flex items-center cursor-default"
           >
-            <div className="w-full h-[4px] w2k-sunken-bar bg-[#D4D0C8]" />
+            <div className="w-full h-[2px] w2k-sunken-bar bg-[#D4D0C8]" />
             <div
-              className="absolute top-0 w-[12px] h-[18px] bg-[var(--w2k-face)] border-t border-l border-[var(--w2k-highlight)] border-r border-b border-[var(--w2k-dark-shadow)] shadow-[inset_-1px_-1px_0_var(--w2k-shadow),inset_1px_1px_0_var(--w2k-light)] pointer-events-none flex items-center justify-center"
-              style={{ left: `calc(${progressRatio * 100}% - ${progressRatio * 12}px)` }}
-            >
-              <div className="w-[4px] h-[10px] border-l border-t border-[var(--w2k-shadow)] border-r border-b border-[var(--w2k-highlight)]" />
-            </div>
+              className="absolute top-[-1px] w-[9px] h-[13px] bg-[var(--w2k-face)] border-t border-l border-[var(--w2k-highlight)] border-r border-b border-[var(--w2k-dark-shadow)] shadow-[inset_-1px_-1px_0_var(--w2k-shadow),inset_1px_1px_0_var(--w2k-light)] pointer-events-none"
+              style={{ left: `calc(${progressRatio * 100}% - ${progressRatio * 9}px)` }}
+            />
           </div>
 
           {/* Transport Buttons + Ascending Triangle Volume Slider matching ref-mpc64.png */}
@@ -684,8 +760,8 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
               <div className="w2k-divider-v mx-1" />
               <button
                 type="button"
-                title="单帧步进"
-                aria-label="单帧步进"
+                title="预览"
+                aria-label="预览"
                 onClick={handleStepFrame}
                 className="w-[24px] h-[22px] p-0 flex items-center justify-center bg-transparent border border-transparent hover:border-t-[var(--w2k-highlight)] hover:border-l-[var(--w2k-highlight)] hover:border-r-[var(--w2k-shadow)] hover:border-b-[var(--w2k-shadow)] cursor-default"
               >
@@ -737,33 +813,42 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
                   style={{ left: `calc(${effectiveVol * 100}% - ${effectiveVol * 9}px)` }}
                 />
               </div>
-
-              <button
-                type="button"
-                aria-label="播放列表"
-                title="显示/隐藏播放列表"
-                onClick={() => setShowPlaylist((p) => !p)}
-                className={`px-1.5 h-[20px] text-[11px] bg-transparent border border-transparent cursor-default ${
-                  showPlaylist
-                    ? 'border-t-[var(--w2k-shadow)] border-l-[var(--w2k-shadow)] border-r-[var(--w2k-highlight)] border-b-[var(--w2k-highlight)] bg-[#E8E6E1]'
-                    : 'hover:border-t-[var(--w2k-highlight)] hover:border-l-[var(--w2k-highlight)] hover:border-r-[var(--w2k-shadow)] hover:border-b-[var(--w2k-shadow)]'
-                }`}
-              >
-                列表
-              </button>
             </div>
+          </div>
+          <div
+            aria-label="媒体选择下拉栏"
+            className="h-[19px] w2k-sunken-bar bg-white flex items-center justify-end"
+          >
+            <span className="h-full w-[18px] border-l border-[#808080] flex items-center justify-center bg-[var(--w2k-face)]">
+              <svg width="8" height="5" viewBox="0 0 8 5" shapeRendering="crispEdges" aria-hidden="true">
+                <path d="M0 0h8L4 5z" fill="#000000" />
+              </svg>
+            </span>
           </div>
         </div>
       )}
 
       {/* Signature Pure #000000 Bottom Info Panel matching ref-mpc64.png */}
-      <div className="m-[2px] mt-0.5 px-2 py-1 w2k-inset bg-black text-[#DCDCDC] flex items-center justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <div className="text-[11px] text-white truncate">{activeVideo.filename}</div>
-          <div className="text-[10px] text-[#9EB0C4] truncate">
-            {statusLabel} · {activeVideo.width}×{activeVideo.height} · {activeVideo.fps} fps
-            {loop ? ' · 循环' : ''}
-          </div>
+      <div className="mx-[2px] mt-0.5 px-2 py-1 w2k-inset bg-black text-[#DCDCDC] font-mono">
+        <div className="grid grid-cols-[50px_minmax(0,1fr)] items-center text-[11px] leading-[14px]">
+          <span className="text-right pr-1 text-white">节目:</span>
+          <span className="truncate text-white">{activeVideo.title}</span>
+        </div>
+        <div className="h-px bg-[#505050] my-[2px]" />
+        <div className="grid grid-cols-[50px_minmax(0,1fr)] items-center text-[11px] leading-[14px]">
+          <span className="text-right pr-1 text-white">剪辑:</span>
+          <span className="truncate">{activeVideo.filename}</span>
+          <span className="text-right pr-1 text-white">作者:</span>
+          <span />
+          <span className="text-right pr-1 text-white">版权:</span>
+          <span />
+        </div>
+      </div>
+
+      <div className="mx-[2px] mb-[2px] px-2 py-[3px] w2k-inset bg-black text-[#DCDCDC] flex items-center justify-between gap-3">
+        <div className="min-w-0 text-[10px] text-[#DCDCDC] truncate">
+          {statusLabel} · {activeVideo.width}×{activeVideo.height} · {activeVideo.fps} fps
+          {loop ? ' · 循环' : ''}
         </div>
         <div
           aria-label="播放时间"
@@ -848,7 +933,7 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
           <div
             role="dialog"
             aria-label={showAboutModal ? '关于 Windows Media Player' : '媒体属性'}
-            className="w2k-window-frame w-[310px]"
+            className={`w2k-window-frame ${showAboutModal ? 'w-[360px]' : 'w-[310px]'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w2k-titlebar">
@@ -870,12 +955,10 @@ export const MediaPlayerApp: React.FC<MediaPlayerAppProps> = ({
                 <Win2kIcon kind="mplayer" size={32} />
                 {showAboutModal ? (
                   <div className="space-y-1">
-                    <div className="font-bold">Windows Media Player 6.4</div>
-                    <div className="text-[11px] text-[#404040]">
-                      版本 6.4.09.1125 (mplayer2.exe)
-                    </div>
-                    <div className="text-[11px] text-[#404040]">
-                      Microsoft Corporation 版权所有
+                    <div className="font-mono text-[11px] text-black">
+                      <div>Windows Media Player</div>
+                      <div>版权所有 (C) 1992-1999 Microsoft Corp.</div>
+                      <div>版本:  6.4.09.1109</div>
                     </div>
                   </div>
                 ) : (

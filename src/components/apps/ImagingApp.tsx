@@ -125,6 +125,8 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const onUpdateTitleRef = useRef(onUpdateTitle);
+  onUpdateTitleRef.current = onUpdateTitle;
   const [viewportSize, setViewportSize] = useState<{ w: number; h: number }>({ w: 500, h: 360 });
 
   useEffect(() => {
@@ -144,6 +146,10 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
   }, [viewMode, showMainToolbars, showAnnotBar, showStatusBar]);
 
   const activePhoto: TropicalPhoto = TROPICAL_PHOTOS[photoIdx] ?? TROPICAL_PHOTOS[0];
+  useEffect(() => {
+    onUpdateTitleRef.current?.(`${activePhoto.filename} - 图像处理`);
+  }, [activePhoto.filename]);
+
   const currentTransform: PhotoTransform = transforms[activePhoto.id] ?? {
     rotation: 0,
     flipH: false,
@@ -157,7 +163,6 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
     setPhotoIdx(wrapped);
     setMarqueeBox(null);
     setStatusNote(`就绪 - ${nextPhoto.filename} · ${nextPhoto.camera} (${nextPhoto.date})`);
-    onUpdateTitle?.(`${nextPhoto.filename} - 图像处理`);
   };
 
   const updateTransform = (updater: (prev: PhotoTransform) => PhotoTransform) => {
@@ -206,8 +211,7 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
     zoomMode,
   ]);
 
-  const zoomLabel =
-    zoomMode === 'fit' ? '最佳' : zoomMode === 'fit-width' ? '适合宽度' : `${zoomMode}%`;
+  const zoomLabel = `${effectivePercent}%`;
 
   const zoomIn = () => {
     const cur = typeof zoomMode === 'number' ? zoomMode : effectivePercent;
@@ -1070,7 +1074,6 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
             </button>
             {PNG_TOOL_BTN('open', '打开图像', () => setShowOpenDialog(true))}
             {PNG_TOOL_BTN('save', '保存图像与批注', handleSaveSnapshot)}
-            <div className="w2k-divider-v mx-0.5" />
             {PNG_TOOL_BTN('print', '打印', () => setShowPrintNotice(true))}
             <div className="w2k-divider-v mx-0.5" />
             {PNG_TOOL_BTN(
@@ -1123,9 +1126,23 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
             {PNG_TOOL_BTN('undo', '撤消', undoLastAnnotation, {
               disabled: currentAnnotations.length === 0,
             })}
-            <div className="w2k-divider-v mx-0.5" />
-            {PNG_TOOL_BTN('rot-left', '向左旋转 90°', rotateLeft)}
-            {PNG_TOOL_BTN('rot-right', '向右旋转 90°', rotateRight)}
+            <button
+              type="button"
+              title="重做"
+              aria-label="重做"
+              disabled
+              className="w-[23px] h-[22px] p-0 flex items-center justify-center bg-transparent border border-transparent disabled:opacity-45 cursor-default"
+            >
+              <img
+                src="/icons/ui/imaging/undo.png"
+                width={16}
+                height={16}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }}
+              />
+            </button>
             <div className="w2k-divider-v mx-0.5" />
             {PNG_TOOL_BTN('zoom-in', '放大', zoomIn)}
             {PNG_TOOL_BTN('zoom-out', '缩小', zoomOut)}
@@ -1274,6 +1291,9 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
               <ImagingToolGlyph name="annot-toggle" />
             </button>
             <div className="w2k-divider-v mx-0.5" />
+            {PNG_TOOL_BTN('rot-left', '向左旋转 90°', rotateLeft)}
+            {PNG_TOOL_BTN('rot-right', '向右旋转 90°', rotateRight)}
+            <div className="w2k-divider-v mx-0.5" />
             {PNG_TOOL_BTN('flip-h', '水平翻转', flipHorizontal)}
             {PNG_TOOL_BTN('flip-v', '垂直翻转', flipVertical)}
             <div className="w2k-divider-v mx-0.5" />
@@ -1289,6 +1309,58 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
             {PNG_TOOL_BTN('fullscreen', '全屏显示', () => setFullscreen(true))}
           </div>
         </>
+      )}
+
+      {showAnnotBar && (
+        <div
+          aria-label="批注工具栏"
+          className="flex items-center justify-between gap-2 px-1 py-[2px] border-b border-[var(--w2k-shadow)] shadow-[0_1px_0_var(--w2k-highlight)] bg-[var(--w2k-face)]"
+        >
+          <div className="flex items-center gap-[1px] flex-wrap">
+            <div className="w2k-gripper mr-0.5" />
+            {renderAnnotToolBtn('pointer', 'annot-pointer', '选择批注指针')}
+            {renderAnnotToolBtn('freehand', 'annot-freehand', '手绘线条')}
+            {renderAnnotToolBtn('highlight', 'annot-highlight', '荧光笔')}
+            {renderAnnotToolBtn('line', 'annot-line', '直线')}
+            {renderAnnotToolBtn('rect', 'annot-rect', '空心矩形')}
+            {renderAnnotToolBtn('filled-rect', 'annot-filled-rect', '实心矩形')}
+            {renderAnnotToolBtn('text', 'annot-text', '文字批注')}
+            {renderAnnotToolBtn('note', 'annot-note', '便签附注')}
+            {renderAnnotToolBtn('stamp', 'annot-stamp', '橡皮图章 (ALOHA 2000)')}
+            <div className="w2k-divider-v mx-1" />
+            <div className="flex items-center gap-1" aria-label="批注颜色">
+              {ANNOT_COLORS.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  title={`批注颜色 ${hex}`}
+                  aria-label={`批注颜色 ${hex}`}
+                  onClick={() => setAnnotColor(hex)}
+                  className={`w-[14px] h-[14px] p-0 border cursor-default ${
+                    annotColor === hex
+                      ? 'border-white outline outline-1 outline-black'
+                      : 'border-[#808080]'
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+            </div>
+            <div className="w2k-divider-v mx-1" />
+            <button
+              type="button"
+              title="清除当前页面全部批注"
+              aria-label="清除当前页面全部批注"
+              disabled={currentAnnotations.length === 0}
+              onClick={clearAnnotations}
+              className="w-[23px] h-[22px] p-0 flex items-center justify-center bg-transparent border border-transparent hover:enabled:border-t-[var(--w2k-highlight)] hover:enabled:border-l-[var(--w2k-highlight)] hover:enabled:border-r-[var(--w2k-shadow)] hover:enabled:border-b-[var(--w2k-shadow)] disabled:opacity-40 cursor-default"
+            >
+              <ImagingToolGlyph name="annot-clear" disabled={currentAnnotations.length === 0} />
+            </button>
+          </div>
+          <span className="text-[11px] text-[#404040] pr-1 hidden sm:inline truncate">
+            {activePhoto.title}
+          </span>
+        </div>
       )}
 
       {/* Main Workspace (Thumbnail Strip + Page Canvas) */}
@@ -1316,7 +1388,7 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
                   }}
                   className={`flex flex-col items-center gap-1 p-1.5 bg-transparent border cursor-default ${
                     isSelected
-                      ? 'border-[#0A246A] bg-[#EEF4FC]'
+                      ? 'border-[#808080] bg-[#D4D0C8]'
                       : 'border-[#D4D0C8] hover:border-[#808080]'
                   } ${viewMode === 'thumbs' ? 'w-[140px]' : 'w-full'}`}
                 >
@@ -1331,16 +1403,14 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
                       style={{ imageRendering: 'pixelated' }}
                     />
                     <span
-                      className={`absolute top-0.5 left-0.5 px-1 text-[10px] leading-tight tabular-nums ${
-                        isSelected ? 'bg-[#0A246A] text-white' : 'bg-white/90 text-black'
-                      }`}
+                      className="absolute top-0.5 left-0.5 px-1 text-[10px] leading-tight tabular-nums bg-white/90 text-black"
                     >
                       {idx + 1}
                     </span>
                   </div>
                   <span
-                    className={`text-[11px] leading-tight truncate w-full text-center px-0.5 ${
-                      isSelected ? 'bg-[#0A246A] text-white' : 'text-black'
+                    className={`text-[11px] leading-tight truncate w-full text-center px-0.5 text-black ${
+                      isSelected ? 'font-semibold' : ''
                     }`}
                   >
                     {photo.filename}
@@ -1428,59 +1498,6 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
         )}
       </div>
 
-      {/* Bottom Annotation Toolbar (matching ref-imaging-win2k.png) */}
-      {showAnnotBar && (
-        <div
-          aria-label="批注工具栏"
-          className="flex items-center justify-between gap-2 px-1 py-[2px] border-t border-[var(--w2k-highlight)] bg-[var(--w2k-face)]"
-        >
-          <div className="flex items-center gap-[1px] flex-wrap">
-            <div className="w2k-gripper mr-0.5" />
-            {renderAnnotToolBtn('pointer', 'annot-pointer', '选择批注指针')}
-            {renderAnnotToolBtn('freehand', 'annot-freehand', '手绘线条')}
-            {renderAnnotToolBtn('highlight', 'annot-highlight', '荧光笔')}
-            {renderAnnotToolBtn('line', 'annot-line', '直线')}
-            {renderAnnotToolBtn('rect', 'annot-rect', '空心矩形')}
-            {renderAnnotToolBtn('filled-rect', 'annot-filled-rect', '实心矩形')}
-            {renderAnnotToolBtn('text', 'annot-text', '文字批注')}
-            {renderAnnotToolBtn('note', 'annot-note', '便签附注')}
-            {renderAnnotToolBtn('stamp', 'annot-stamp', '橡皮图章 (ALOHA 2000)')}
-            <div className="w2k-divider-v mx-1" />
-            <div className="flex items-center gap-1" aria-label="批注颜色">
-              {ANNOT_COLORS.map((hex) => (
-                <button
-                  key={hex}
-                  type="button"
-                  title={`批注颜色 ${hex}`}
-                  aria-label={`批注颜色 ${hex}`}
-                  onClick={() => setAnnotColor(hex)}
-                  className={`w-[14px] h-[14px] p-0 border cursor-default ${
-                    annotColor === hex
-                      ? 'border-white outline outline-1 outline-black'
-                      : 'border-[#808080]'
-                  }`}
-                  style={{ backgroundColor: hex }}
-                />
-              ))}
-            </div>
-            <div className="w2k-divider-v mx-1" />
-            <button
-              type="button"
-              title="清除当前页面全部批注"
-              aria-label="清除当前页面全部批注"
-              disabled={currentAnnotations.length === 0}
-              onClick={clearAnnotations}
-              className="w-[23px] h-[22px] p-0 flex items-center justify-center bg-transparent border border-transparent hover:enabled:border-t-[var(--w2k-highlight)] hover:enabled:border-l-[var(--w2k-highlight)] hover:enabled:border-r-[var(--w2k-shadow)] hover:enabled:border-b-[var(--w2k-shadow)] disabled:opacity-40 cursor-default"
-            >
-              <ImagingToolGlyph name="annot-clear" disabled={currentAnnotations.length === 0} />
-            </button>
-          </div>
-          <span className="text-[11px] text-[#404040] pr-1 hidden sm:inline truncate">
-            {activePhoto.title}
-          </span>
-        </div>
-      )}
-
       {/* Bottom 3-Pane Sunken Status Bar (matching ref-imaging-win2k.png) */}
       {showStatusBar && (
         <div className="flex items-center gap-1 px-1 pb-[2px] pt-[1px] text-[11px] text-[#000000]">
@@ -1488,8 +1505,8 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
           <div className="w2k-sunken-bar px-2 py-[1px] w-[72px] text-center tabular-nums">
             {zoomLabel}
           </div>
-          <div className="w2k-sunken-bar px-2 py-[1px] w-[148px] truncate text-center tabular-nums">
-            {activePhoto.width} × {activePhoto.height} · {activePhoto.colorDepth}
+          <div className="w2k-sunken-bar px-2 py-[1px] w-[170px] truncate text-center tabular-nums">
+            第 {photoIdx + 1} 页，共 {TROPICAL_PHOTOS.length} 页
           </div>
         </div>
       )}
