@@ -162,7 +162,7 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
     const nextPhoto = TROPICAL_PHOTOS[wrapped];
     setPhotoIdx(wrapped);
     setMarqueeBox(null);
-    setStatusNote(`就绪 - ${nextPhoto.filename} · ${nextPhoto.camera} (${nextPhoto.date})`);
+    setStatusNote('就绪');
   };
 
   const updateTransform = (updater: (prev: PhotoTransform) => PhotoTransform) => {
@@ -1357,9 +1357,6 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
               <ImagingToolGlyph name="annot-clear" disabled={currentAnnotations.length === 0} />
             </button>
           </div>
-          <span className="text-[11px] text-[#404040] pr-1 hidden sm:inline truncate">
-            {activePhoto.title}
-          </span>
         </div>
       )}
 
@@ -1536,7 +1533,7 @@ export const ImagingApp: React.FC<ImagingAppProps> = ({
             </div>
             <div className="p-2.5 bg-[var(--w2k-face)] space-y-2.5 text-[12px]">
               <div className="text-[11px] text-[#404040]">
-                查找范围: 我的文档\我的图片 (千禧海岛假期摄影)
+                查找范围: 我的文档\我的图片
               </div>
               <div className="w2k-inset bg-white max-h-[200px] overflow-y-auto w2k-scroll p-1 space-y-0.5">
                 {TROPICAL_PHOTOS.map((photo, idx) => (
