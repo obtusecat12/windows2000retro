@@ -326,3 +326,46 @@ test('PalmBathSim: isometric shower spray, steam ventilation, rain, and radio no
   assert.equal(s.steamLevel < peakSteam, true);
   assert.equal(s.waterTempC, 21);
 });
+
+import { evaluateCounterRadiosity } from './retroRadiosityBaker';
+import { projectIso, sortIsoRenderItems } from './palmBathIsoEngine';
+
+test('RetroRadiosityBaker: 3-bounce counter radiosity lifts shadows and differentiates beach moods', () => {
+  const noonOpen = evaluateCounterRadiosity(0.6, 0.4, 'noon');
+  const noonContact = evaluateCounterRadiosity(-1.72, -0.45, 'noon');
+  const sunsetOpen = evaluateCounterRadiosity(0.6, 0.4, 'sunset');
+  const torchNearFlame = evaluateCounterRadiosity(-2.38, -1.25, 'torch');
+  const torchCenter = evaluateCounterRadiosity(0.0, 0.8, 'torch');
+
+  // Airy 1999 CG luminance: open sunlit surface is bright, contact AO darkens softly without crushing to black
+  assert.equal(noonOpen.r > 0.72 && noonOpen.g > 0.72 && noonOpen.b > 0.68, true);
+  assert.equal(noonContact.r < noonOpen.r && noonContact.r > 0.35, true);
+  // Sunset has warmer red > blue balance
+  assert.equal(sunsetOpen.r > sunsetOpen.b + 0.12, true);
+  // Torchlight bounce is measurably warmer & brighter near the flanking Tiki torch
+  assert.equal(torchNearFlame.r > torchCenter.r, true);
+});
+
+test('PalmBathIsoEngine: 2:1 isometric projection and painter depth sorting enforce strict occlusion order', () => {
+  const pOrigin = projectIso(0, 0, 0);
+  const pRight = projectIso(2, 0, 0);
+  const pLeft = projectIso(0, 2, 0);
+  assert.equal(pRight.x > pOrigin.x && pRight.y > pOrigin.y, true);
+  assert.equal(pLeft.x < pOrigin.x && pLeft.y > pOrigin.y, true);
+
+  const sorted = sortIsoRenderItems([
+    { id: 'monstera', u: 6.35, v: 6.45, z: 0, priority: 2 },
+    { id: 'tub-front', u: 1.65, v: 4.75, z: 1.22, priority: 9 },
+    { id: 'duckboard', u: 2.05, v: 1.38, z: 0.05, priority: -15 },
+    { id: 'tub-water', u: 1.65, v: 4.75, z: 0.96, priority: -6 },
+    { id: 'tub-back', u: 1.65, v: 4.75, z: 0.4, priority: -12 },
+    { id: 'tub-ducky', u: 1.65, v: 4.75, z: 1.16, priority: -2 },
+    { id: 'tub-caddy', u: 1.65, v: 4.75, z: 1.3, priority: 2 },
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['duckboard', 'tub-back', 'tub-water', 'tub-ducky', 'tub-caddy', 'tub-front', 'monstera']
+  );
+});
+

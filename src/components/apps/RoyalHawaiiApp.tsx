@@ -13,6 +13,13 @@ import {
   applyRadialPinwheelUvs,
   createPs1TextureSet,
 } from '../../core/ps1Textures';
+import {
+  bakeCounterLightmap,
+  bakeGlassCausticTexture,
+  bakePropRadiosityLightmap,
+  bakeRetroStudioEnvMap,
+  ensureUv1,
+} from '../../core/retroRadiosityBaker';
 import { CocktailAudioEngine } from '../../core/retroAmbienceAudio';
 import { Win2kIcon } from '../icons/Win2kIcons';
 import { PixelCheckmark, PixelRadioDot } from '../icons/Win2kPixelGlyphs';
@@ -91,7 +98,7 @@ const PS1_DITHER_VERT = /* glsl */ `
   }
 `;
 
-// Authentic 1999-2001 PS1/PS2 ordered Bayer 4x4 dithering + crisp 16-bit color depth post-pass
+// 1999 CG / PS2 Retro Post-Pass: Luminous radiosity lift + 4-tap highlight bloom + 4x4 ordered Bayer dithering
 const PS1_DITHER_FRAG = /* glsl */ `
   uniform sampler2D tDiffuse;
   uniform vec2 uResolution;
@@ -124,7 +131,7 @@ const PS1_DITHER_FRAG = /* glsl */ `
   vec3 highlight(vec2 uv) {
     vec3 sampleColor = texture2D(tDiffuse, uv).rgb;
     float luminance = dot(sampleColor, vec3(0.2126, 0.7152, 0.0722));
-    return sampleColor * smoothstep(0.68, 0.92, luminance);
+    return sampleColor * smoothstep(0.70, 0.94, luminance);
   }
 
   void main() {
@@ -136,10 +143,11 @@ const PS1_DITHER_FRAG = /* glsl */ `
       highlight(vUv + vec2(0.0, blurStep.y)) +
       highlight(vUv - vec2(0.0, blurStep.y))
     ) * 0.25;
-    vec3 glow = col.rgb + bloom * uBloomStrength;
+    vec3 lifted = pow(clamp(col.rgb, 0.0, 1.0), vec3(0.93));
+    vec3 glow = lifted + bloom * uBloomStrength;
     vec2 px = floor(vUv * uResolution);
-    float dither = (bayer4x4(px) - 0.5) / 36.0;
-    vec3 quant = floor((glow + dither) * 36.0 + 0.5) / 36.0;
+    float dither = (bayer4x4(px) - 0.5) / 48.0;
+    vec3 quant = floor((glow + dither) * 48.0 + 0.5) / 48.0;
     gl_FragColor = vec4(clamp(quant, 0.0, 1.0), 1.0);
   }
 `;
@@ -149,7 +157,7 @@ function createPs1PalmTree(textures: Ps1TextureSet, heightScale = 1, lean = 0.25
   const trunkMat = new THREE.MeshPhongMaterial({
     map: textures.palmBark,
     flatShading: true,
-    shininess: 8,
+    shininess: 10,
   });
 
   const segs = 6;
@@ -171,8 +179,7 @@ function createPs1PalmTree(textures: Ps1TextureSet, heightScale = 1, lean = 0.25
   const crown = new THREE.Group();
   crown.position.set(curX, curY, 0);
 
-  // Cluster of low-poly coconuts under fronds
-  const cocoMat = new THREE.MeshPhongMaterial({ color: 0x5c3418, flatShading: true });
+  const cocoMat = new THREE.MeshPhongMaterial({ color: 0x734420, flatShading: true });
   for (let c = 0; c < 3; c++) {
     const a = (c / 3) * Math.PI * 2;
     const coco = new THREE.Mesh(new THREE.IcosahedronGeometry(0.12 * heightScale, 0), cocoMat);
@@ -180,13 +187,12 @@ function createPs1PalmTree(textures: Ps1TextureSet, heightScale = 1, lean = 0.25
     crown.add(coco);
   }
 
-  // Faceted arched PS1 frond planes with alpha-keyed frond texture
   const frondMat = new THREE.MeshPhongMaterial({
     map: textures.palmFrond,
     alphaTest: 0.42,
     side: THREE.DoubleSide,
     flatShading: true,
-    shininess: 14,
+    shininess: 16,
   });
 
   const frondGeo = new THREE.PlaneGeometry(0.76 * heightScale, 2.25 * heightScale, 1, 4);
@@ -232,19 +238,23 @@ function createFlameGlowTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-function createRetroTikiTorch(textures: Ps1TextureSet, phase: number, glowTexture: THREE.Texture) {
+function createRetroTikiTorch(
+  textures: Ps1TextureSet,
+  phase: number,
+  glowTexture: THREE.Texture
+) {
   const root = new THREE.Group();
 
   const poleMat = new THREE.MeshPhongMaterial({
     map: textures.rattanMat,
-    color: 0xb88648,
+    color: 0xc99652,
     flatShading: true,
-    shininess: 12,
+    shininess: 14,
   });
   const ironMat = new THREE.MeshPhongMaterial({
-    color: 0x3b2c22,
+    color: 0x4e3c2e,
     flatShading: true,
-    shininess: 22,
+    shininess: 26,
   });
 
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 3.6, 7), poleMat);
@@ -255,7 +265,6 @@ function createRetroTikiTorch(textures: Ps1TextureSet, phase: number, glowTextur
   cup.position.y = 3.72;
   root.add(cup);
 
-  // Retro multi-shell faceted low-poly flame (outer orange + inner golden core + ember spark)
   const flameGroup = new THREE.Group();
   flameGroup.position.y = 3.92;
 
@@ -280,6 +289,7 @@ function createRetroTikiTorch(textures: Ps1TextureSet, phase: number, glowTextur
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
+
   const outerFlameGeo = new THREE.ConeGeometry(0.145, 0.5, 6, 2, true);
   const innerFlameGeo = new THREE.ConeGeometry(0.084, 0.34, 5, 2, true);
   const coreFlameGeo = new THREE.ConeGeometry(0.041, 0.18, 4, 1, true);
@@ -289,6 +299,7 @@ function createRetroTikiTorch(textures: Ps1TextureSet, phase: number, glowTextur
   innerFlame.position.y = 0.2;
   const coreFlame = new THREE.Mesh(coreFlameGeo, coreFlameMat);
   coreFlame.position.y = 0.16;
+
   const glowMaterial = new THREE.SpriteMaterial({
     map: glowTexture,
     color: 0xff8c34,
@@ -300,9 +311,16 @@ function createRetroTikiTorch(textures: Ps1TextureSet, phase: number, glowTextur
   const glowSprite = new THREE.Sprite(glowMaterial);
   glowSprite.position.y = 0.28;
   glowSprite.scale.set(0.62, 0.9, 1);
+
   flameGroup.add(glowSprite, outerFlame, innerFlame, coreFlame);
   root.add(flameGroup);
-  const jitter = (geometry: THREE.BufferGeometry, base: Float32Array, t: number, amplitude: number) => {
+
+  const jitter = (
+    geometry: THREE.BufferGeometry,
+    base: Float32Array,
+    t: number,
+    amplitude: number
+  ) => {
     const positions = geometry.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < positions.count; i++) {
       const offset = i * 3;
@@ -335,6 +353,13 @@ function createRetroTikiTorch(textures: Ps1TextureSet, phase: number, glowTextur
   return { root, update };
 }
 
+function getCocktailCausticColor(presetId: string): number {
+  if (presetId === 'blue-hawaii') return 0x3ef0ff;
+  if (presetId === 'pina-colada') return 0xffe89e;
+  if (presetId === 'hawaiian-hurricane') return 0xff5a68;
+  return 0xffa63d; // royal-mai-tai warm amber-ruby refraction
+}
+
 export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
   systemVolume = 75,
   systemMuted = false,
@@ -348,9 +373,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [openMenu, setOpenMenu] = useState<'drink' | 'scene' | 'help' | null>(null);
   const [showAbout, setShowAbout] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string>(
-    '皇家迈泰 · 经典 PS1/PS2 硬朗折面建模与动态棱角海浪，点击酒杯或纸伞互动'
-  );
+  const [statusMessage, setStatusMessage] = useState<string>(firstPreset.nameZh);
 
   const canvasMountRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<CocktailAudioEngine | null>(null);
@@ -384,7 +407,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
   } | null>(null);
 
   useEffect(() => {
-    onUpdateTitleRef.current?.(`Royal Hawaii 3D - ${activePreset.nameZh} (${activePreset.nameEn})`);
+    onUpdateTitleRef.current?.(`Royal Hawaii - ${activePreset.nameZh}`);
   }, [activePreset]);
 
   useEffect(() => {
@@ -419,15 +442,16 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     const animatedModelPalms: THREE.Group[] = [];
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x3caae8);
-    scene.fog = new THREE.Fog(0x7fd8f5, 14, 38);
+    scene.background = new THREE.Color(0x4eb8f0);
+    scene.fog = new THREE.Fog(0x9be2fa, 18, 46);
 
     const width = Math.max(240, container.clientWidth || 560);
     const height = Math.max(180, container.clientHeight || 340);
 
-    const camera = new THREE.PerspectiveCamera(27, width / height, 0.1, 75);
-    camera.position.set(0, 3.45, 6.3);
-    camera.lookAt(0, 1.65, 0);
+    // Classic 1999 Telephoto Still-Life Lens (FOV 20° — balanced glassware, bar props & ocean vista)
+    const camera = new THREE.PerspectiveCamera(20, width / height, 0.1, 88);
+    camera.position.set(0, 4.62, 9.95);
+    camera.lookAt(0, 1.16, 0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
@@ -444,9 +468,9 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // Authentic PS1/PS2 low-res offscreen RenderTarget -> Bayer 4x4 ordered-dither pass
+    // PS2-era crisp 640px offscreen RenderTarget -> highlight bloom + luminous lift + 4x4 Bayer dither
     const ps1ResW = 640;
-    const ps1ResH = Math.max(220, Math.min(448, Math.round((ps1ResW * height) / width)));
+    const ps1ResH = Math.max(240, Math.min(448, Math.round((ps1ResW * height) / width)));
     const ps1Target = new THREE.WebGLRenderTarget(ps1ResW, ps1ResH, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
@@ -461,7 +485,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         tDiffuse: { value: ps1Target.texture },
         uResolution: { value: new THREE.Vector2(ps1ResW, ps1ResH) },
         uTexelSize: { value: new THREE.Vector2(1 / ps1ResW, 1 / ps1ResH) },
-        uBloomStrength: { value: 0.16 },
+        uBloomStrength: { value: 0.14 },
       },
       vertexShader: PS1_DITHER_VERT,
       fragmentShader: PS1_DITHER_FRAG,
@@ -473,6 +497,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
 
     const textures = createPs1TextureSet();
     const gltfLoader = new GLTFLoader();
+
     const loadKenneyModel = (
       url: string,
       parent: THREE.Object3D,
@@ -507,10 +532,18 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
           model.traverse((object) => {
             if (!(object as THREE.Mesh).isMesh) return;
             const mesh = object as THREE.Mesh;
-            applyVertexGradient(mesh.geometry, 'y', 0xd0d0d0, 0xfff7df);
+            applyVertexGradient(mesh.geometry, 'y', 0xd6d6d6, 0xfff8e6);
             const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             materials.forEach((material) => {
-              (material as THREE.MeshStandardMaterial).vertexColors = true;
+              const std = material as THREE.MeshStandardMaterial;
+              std.vertexColors = true;
+              // Keep PBR props bright & coherent without global scene.environment
+              if (typeof std.metalness === 'number') {
+                std.metalness = Math.min(std.metalness, 0.15);
+              }
+              if (typeof std.roughness === 'number') {
+                std.roughness = Math.max(std.roughness, 0.55);
+              }
               material.needsUpdate = true;
             });
           });
@@ -524,42 +557,74 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     };
 
     // =========================================================================
-    // 1. RETRO DIRECT3D / PS2 LIGHTING RIG
+    // 0. PRE-BAKE 3-BOUNCE RADIOSITY LIGHTMAPS + GLASS CAUSTICS + STUDIO ENVMAPS
     // =========================================================================
-    const hemiLight = new THREE.HemisphereLight(0xbbeeff, 0x6b3e1e, 1.05);
+    const counterLightMaps: Record<BeachTimeId, THREE.CanvasTexture> = {
+      noon: bakeCounterLightmap('noon'),
+      sunset: bakeCounterLightmap('sunset'),
+      torch: bakeCounterLightmap('torch'),
+    };
+    const propLightMaps: Record<BeachTimeId, THREE.CanvasTexture> = {
+      noon: bakePropRadiosityLightmap('noon'),
+      sunset: bakePropRadiosityLightmap('sunset'),
+      torch: bakePropRadiosityLightmap('torch'),
+    };
+    const studioEnvMaps: Record<BeachTimeId, THREE.CanvasTexture> = {
+      noon: bakeRetroStudioEnvMap('noon'),
+      sunset: bakeRetroStudioEnvMap('sunset'),
+      torch: bakeRetroStudioEnvMap('torch'),
+    };
+    const causticTex = bakeGlassCausticTexture();
+
+    // =========================================================================
+    // 1. 1999 RETRO STILL-LIFE CG MULTI-BOUNCE LIGHTING RIG + BEACH FIRE LIGHT
+    // =========================================================================
+    const hemiLight = new THREE.HemisphereLight(0xd9f5ff, 0xa86f3e, 1.55);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfff1c9, 1.45);
-    sunLight.position.set(4.5, 7.2, 4.4);
+    const sunLight = new THREE.DirectionalLight(0xfff6dc, 1.95);
+    sunLight.position.set(4.6, 7.6, 4.2);
     scene.add(sunLight);
 
-    const rimLight = new THREE.DirectionalLight(0x70ecff, 0.55);
-    rimLight.position.set(-4.5, 3.2, -2.5);
-    scene.add(rimLight);
+    // Bounce 2: Ocean Horizon Turquoise/Coral Indirect Rim Light from behind the bar
+    const oceanBounceLight = new THREE.DirectionalLight(0x68eeff, 1.05);
+    oceanBounceLight.position.set(-3.2, 3.4, -5.2);
+    scene.add(oceanBounceLight);
 
-    const leftTorchLight = new THREE.PointLight(0xff8424, 1.1, 11, 1.4);
-    leftTorchLight.position.set(-2.65, 2.35, -1.25);
+    // Bounce 3: Warm Mahogany Countertop Radiosity Up-Fill
+    const counterUpFill = new THREE.PointLight(0xffcb8c, 1.35, 9.5, 1.2);
+    counterUpFill.position.set(-0.3, 0.72, 2.35);
+    scene.add(counterUpFill);
+
+    const leftTorchLight = new THREE.PointLight(0xff9230, 1.2, 12, 1.3);
+    leftTorchLight.position.set(-2.38, 2.32, -1.25);
     scene.add(leftTorchLight);
 
-    const rightTorchLight = new THREE.PointLight(0xff8424, 1.1, 11, 1.4);
-    rightTorchLight.position.set(2.65, 2.35, -1.25);
+    const rightTorchLight = new THREE.PointLight(0xff9230, 1.2, 12, 1.3);
+    rightTorchLight.position.set(2.38, 2.32, -1.25);
     scene.add(rightTorchLight);
-    const beachFireLight = new THREE.PointLight(0xff7b32, 0.4, 9, 1.6);
-    beachFireLight.position.set(3.45, -0.45, -6.4);
+
+    const beachFireLight = new THREE.PointLight(0xff7b32, 0.35, 10, 1.5);
+    beachFireLight.position.set(2.65, -0.45, -6.4);
     scene.add(beachFireLight);
 
     // =========================================================================
-    // 2. RETRO MAHOGANY TIKI BAR COUNTERTOP + RATTAN MAT + CARVED TIKI PROPS
+    // 2. MAHOGANY BAR COUNTER + BAKED RADIOSITY + BAMBOO RELIEF + KENNEY PROPS
     // =========================================================================
     const barGroup = new THREE.Group();
 
+    const counterTopGeo = ensureUv1(new THREE.BoxGeometry(8.2, 0.34, 3.4));
     const counterTopMat = new THREE.MeshPhongMaterial({
       map: textures.barWood,
+      lightMap: counterLightMaps.noon,
+      lightMapIntensity: 2.1,
+      color: 0xffe2c7,
+      emissive: 0x382012,
       flatShading: true,
-      specular: 0x6b4528,
-      shininess: 22,
+      specular: 0xbd8d60,
+      shininess: 34,
     });
-    const counterTop = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.34, 3.4), counterTopMat);
+    const counterTop = new THREE.Mesh(counterTopGeo, counterTopMat);
     counterTop.position.set(0, -0.17, 0.25);
     barGroup.add(counterTop);
 
@@ -567,59 +632,107 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       map: textures.barBamboo,
       bumpMap: textures.barRelief,
       bumpScale: 0.035,
-      color: 0x996540,
+      lightMap: propLightMaps.noon,
+      lightMapIntensity: 1.55,
+      color: 0xd9a278,
+      emissive: 0x26150c,
       flatShading: true,
-      shininess: 10,
+      shininess: 14,
     });
-    const counterBody = new THREE.Mesh(new THREE.BoxGeometry(7.9, 1.4, 3.1), counterApronMat);
+    const counterBody = new THREE.Mesh(
+      ensureUv1(new THREE.BoxGeometry(7.9, 1.4, 3.1)),
+      counterApronMat
+    );
     counterBody.position.set(0, -1.04, 0.25);
     barGroup.add(counterBody);
 
-    // Bamboo edge rails (7-sided chunky retro cylinders)
     const bambooMat = new THREE.MeshPhongMaterial({
       map: textures.barBamboo,
       bumpMap: textures.barRelief,
       bumpScale: 0.025,
-      color: 0xe6b872,
+      lightMap: propLightMaps.noon,
+      lightMapIntensity: 1.5,
+      color: 0xf8d79c,
+      emissive: 0x2c1d0c,
       flatShading: true,
-      shininess: 18,
+      shininess: 24,
     });
-    const backRail = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 8.3, 7), bambooMat);
+    const backRail = new THREE.Mesh(
+      ensureUv1(new THREE.CylinderGeometry(0.12, 0.12, 8.3, 7)),
+      bambooMat
+    );
     backRail.rotation.z = Math.PI / 2;
     backRail.position.set(0, -0.04, -1.42);
     barGroup.add(backRail);
 
-    // Woven golden rattan table mat + braided octagonal coaster
+    // Woven Golden Rattan Table Mat with Baked Multi-Bounce Radiosity
+    const rattanMatMaterial = new THREE.MeshPhongMaterial({
+      map: textures.rattanMat,
+      lightMap: counterLightMaps.noon,
+      lightMapIntensity: 1.75,
+      color: 0xffe8be,
+      emissive: 0x33200e,
+      flatShading: true,
+      shininess: 16,
+    });
     const rattanBarMat = new THREE.Mesh(
-      new THREE.BoxGeometry(2.6, 0.025, 1.65),
-      new THREE.MeshPhongMaterial({ map: textures.rattanMat, flatShading: true, shininess: 10 })
+      ensureUv1(new THREE.BoxGeometry(2.6, 0.025, 1.65)),
+      rattanMatMaterial
     );
     rattanBarMat.position.set(0, 0.012, 0.04);
     barGroup.add(rattanBarMat);
 
+    const coasterMat = new THREE.MeshPhongMaterial({
+      map: textures.coaster,
+      lightMap: propLightMaps.noon,
+      lightMapIntensity: 1.55,
+      color: 0xfff5db,
+      emissive: 0x2b1d0d,
+      flatShading: true,
+      shininess: 18,
+    });
     const coasterDisk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.75, 0.79, 0.04, 10),
-      new THREE.MeshPhongMaterial({
-        map: textures.coaster,
-        color: 0xffe5b8,
-        flatShading: true,
-        shininess: 12,
-      })
+      ensureUv1(new THREE.CylinderGeometry(0.75, 0.79, 0.04, 10)),
+      coasterMat
     );
     coasterDisk.position.set(0, 0.038, 0);
     barGroup.add(coasterDisk);
 
-    // Left Counter Prop: Carved Polynesian Tiki Idol
+    // Raytraced Colored Glass Refraction Caustic Projection Pool
+    const causticMat = new THREE.MeshBasicMaterial({
+      map: causticTex,
+      color: getCocktailCausticColor(firstPreset.id),
+      transparent: true,
+      opacity: 0.68,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const causticPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.75, 1.55), causticMat);
+    causticPlane.rotation.x = -Math.PI / 2;
+    causticPlane.position.set(-0.42, 0.06, -0.18);
+    causticPlane.renderOrder = 2;
+    barGroup.add(causticPlane);
+
+    // Left Counter Prop: Carved Polynesian Tiki Idol illuminated by Baked Multi-Bounce Radiosity
     const totemSideMat = new THREE.MeshPhongMaterial({
       map: textures.barWood,
-      color: 0x7a5438,
+      lightMap: propLightMaps.noon,
+      lightMapIntensity: 1.95,
+      color: 0xd9ad82,
+      emissive: 0x3a2517,
       flatShading: true,
+      shininess: 20,
     });
     const totemFrontMat = new THREE.MeshPhongMaterial({
       map: textures.totemFront,
+      lightMap: propLightMaps.noon,
+      lightMapIntensity: 2.15,
+      color: 0xfff0dc,
+      emissive: 0x453020,
       flatShading: true,
+      shininess: 26,
     });
-    const totemMesh = new THREE.Mesh(new THREE.BoxGeometry(0.56, 1.24, 0.44), [
+    const totemMesh = new THREE.Mesh(ensureUv1(new THREE.BoxGeometry(0.56, 1.24, 0.44)), [
       totemSideMat,
       totemSideMat,
       totemSideMat,
@@ -627,28 +740,34 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       totemFrontMat,
       totemFrontMat,
     ]);
-    totemMesh.position.set(-1.72, 0.62, -0.45);
-    totemMesh.rotation.y = 0.34;
+    totemMesh.position.set(-1.58, 0.62, -0.44);
+    totemMesh.rotation.y = 0.36;
     barGroup.add(totemMesh);
 
-    // Right Counter Prop: Turned Koa-Wood Ice & Lime Dish (chunky PS1 low-poly)
+    // Right Counter Prop: Turned Koa-Wood Ice & Lime Dish with Studio Ice Reflections
     const dishGroup = new THREE.Group();
     const bowlMat = new THREE.MeshPhongMaterial({
       map: textures.barWood,
-      color: 0xc9854c,
+      lightMap: propLightMaps.noon,
+      lightMapIntensity: 1.85,
+      color: 0xf5ba80,
+      emissive: 0x382010,
       flatShading: true,
-      shininess: 22,
+      shininess: 30,
     });
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.25, 0.26, 8), bowlMat);
+    const bowl = new THREE.Mesh(ensureUv1(new THREE.CylinderGeometry(0.4, 0.25, 0.26, 8)), bowlMat);
     bowl.position.y = 0.13;
     dishGroup.add(bowl);
 
     const bowlIceMat = new THREE.MeshPhongMaterial({
       map: textures.ice,
-      color: 0xdff8ff,
+      envMap: studioEnvMaps.noon,
+      reflectivity: 0.55,
+      combine: THREE.MixOperation,
+      color: 0xe8fbff,
       flatShading: true,
       specular: 0xffffff,
-      shininess: 70,
+      shininess: 96,
     });
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.4;
@@ -663,67 +782,69 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         map: textures.lime,
         alphaTest: 0.4,
         flatShading: true,
+        shininess: 26,
       })
     );
     spareLime.position.set(-0.22, 0.28, 0.22);
     spareLime.rotation.set(0.65, 0.4, 0.35);
     dishGroup.add(spareLime);
-    dishGroup.position.set(1.66, 0, -0.32);
+    dishGroup.position.set(1.48, 0, -0.28);
     barGroup.add(dishGroup);
 
-    loadKenneyModel('/models/food/cocktail.glb', barGroup, [-2.82, 0.03, -0.55], 0.9, -0.2);
-    loadKenneyModel('/models/pirate/barrel.glb', barGroup, [-3.48, 0.02, -0.52], 0.88);
-    loadKenneyModel('/models/pirate/bottle-rum.glb', barGroup, [3.48, 0.03, -0.62], 0.72, 0.3);
-    loadKenneyModel('/models/holiday/lantern.glb', barGroup, [3.55, 0.03, 0.62], 0.66, -0.35);
+    // Curated Kenney CC0 Bar Props framed neatly along the telephoto counter wings (zero overlap!)
+    loadKenneyModel('/models/pirate/bottle-rum.glb', barGroup, [-2.14, 0.02, -0.78], 0.72, 0.32);
+    loadKenneyModel('/models/pirate/barrel.glb', barGroup, [-2.82, 0.02, -0.58], 0.84, 0.18);
+    loadKenneyModel('/models/food/cocktail.glb', barGroup, [-2.74, 0.02, 0.22], 0.62, -0.2);
+    loadKenneyModel('/models/holiday/lantern.glb', barGroup, [2.16, 0.02, -0.82], 0.64, -0.35);
 
     const fruitDressing = new THREE.Group();
-    fruitDressing.position.set(2.75, 0.02, -0.05);
+    fruitDressing.position.set(2.28, 0.02, 0.18);
     barGroup.add(fruitDressing);
-    loadKenneyModel('/models/food/pineapple.glb', fruitDressing, [0, 0, -0.18], 0.48, 0.4);
-    loadKenneyModel('/models/food/orange.glb', fruitDressing, [-0.38, 0, 0.18], 0.32);
-    loadKenneyModel('/models/food/lemon-half.glb', fruitDressing, [0.36, 0, 0.21], 0.3, -0.5);
-    loadKenneyModel('/models/food/cherries.glb', fruitDressing, [-0.2, 0, -0.45], 0.27);
-    loadKenneyModel('/models/food/coconut-half.glb', fruitDressing, [0.36, 0, -0.4], 0.34, 0.7);
-    loadKenneyModel('/models/food/strawberry.glb', fruitDressing, [0.1, 0, 0.43], 0.24, 0.5);
-    loadKenneyModel('/models/food/whipped-cream.glb', fruitDressing, [-0.52, 0, -0.12], 0.28, 0.35);
+    loadKenneyModel('/models/food/pineapple.glb', fruitDressing, [0.22, 0, -0.28], 0.46, 0.4);
+    loadKenneyModel('/models/food/orange.glb', fruitDressing, [-0.24, 0, 0.16], 0.28);
+    loadKenneyModel('/models/food/lemon-half.glb', fruitDressing, [0.24, 0, 0.22], 0.26, -0.5);
+    loadKenneyModel('/models/food/cherries.glb', fruitDressing, [-0.14, 0, -0.34], 0.24);
+    loadKenneyModel('/models/food/coconut-half.glb', fruitDressing, [0.38, 0, -0.02], 0.31, 0.7);
+    loadKenneyModel('/models/food/strawberry.glb', fruitDressing, [0.02, 0, 0.34], 0.22, 0.5);
+    loadKenneyModel('/models/food/whipped-cream.glb', fruitDressing, [-0.36, 0, -0.14], 0.24, 0.35);
 
-    // Flanking Retro Standing Bamboo Tiki Torches
+    // Flanking Standing Bamboo Tiki Torches with Layered Additive Flames & Glow Sprite
     const fireGlowTexture = createFlameGlowTexture();
     const leftTorch = createRetroTikiTorch(textures, 0.4, fireGlowTexture);
-    leftTorch.root.position.set(-2.55, -1.78, -1.35);
+    leftTorch.root.position.set(-2.36, -1.78, -1.35);
     barGroup.add(leftTorch.root);
 
     const rightTorch = createRetroTikiTorch(textures, 3.6, fireGlowTexture);
-    rightTorch.root.position.set(2.55, -1.78, -1.35);
+    rightTorch.root.position.set(2.36, -1.78, -1.35);
     barGroup.add(rightTorch.root);
 
     scene.add(barGroup);
 
     // =========================================================================
-    // 3. DYNAMIC ANGULAR PS1/PS2 RIPPLING OCEAN + CORAL SAND + SWAYING PALMS
+    // 3. DYNAMIC ANGULAR PS1/PS2 OCEAN + WET SAND + SUN GLINTS + KENNEY COVE
     // =========================================================================
     const vistaGroup = new THREE.Group();
 
-    const skyCylGeo = new THREE.CylinderGeometry(34, 34, 24, 20, 1, true);
+    const skyCylGeo = new THREE.CylinderGeometry(36, 36, 26, 20, 1, true);
     skyCylGeo.scale(-1, 1, 1);
     const skyCylMat = new THREE.MeshBasicMaterial({
       map: textures.skyNoon,
       fog: false,
     });
     const skyCyl = new THREE.Mesh(skyCylGeo, skyCylMat);
-    skyCyl.position.set(0, 6.2, 0);
+    skyCyl.position.set(0, 6.4, 0);
     skyCyl.rotation.y = Math.PI * 0.5;
     vistaGroup.add(skyCyl);
 
-    // Coral Sand Beach with Newly Generated Shells & Pebbles Texture
     const sandGeo = new THREE.PlaneGeometry(36, 7.5, 14, 4);
     sandGeo.rotateX(-Math.PI / 2);
-    applyVertexGradient(sandGeo, 'z', 0xc3a17a, 0xfff0cd);
+    applyVertexGradient(sandGeo, 'z', 0xc9a882, 0xfff4d6);
     const sandMat = new THREE.MeshPhongMaterial({
       map: textures.sand,
       vertexColors: true,
+      color: 0xfff5dc,
       flatShading: true,
-      shininess: 8,
+      shininess: 10,
     });
     const sandBeach = new THREE.Mesh(sandGeo, sandMat);
     sandBeach.position.set(0, -1.72, -4.6);
@@ -737,7 +858,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         map: textures.wetSand,
         color: 0xdac6a3,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.42,
         depthWrite: false,
         flatShading: true,
         shininess: 38,
@@ -746,10 +867,10 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     wetSand.position.set(0, -1.685, -6.0);
     vistaGroup.add(wetSand);
 
-    // DYNAMIC ANGULAR FACETED PS1/PS2 OCEAN WATER (Wave Vertex Displacement + Flat Facet Specular!)
-    const oceanGeo = new THREE.PlaneGeometry(56, 42, 34, 24);
+    // Dynamic Angular Faceted PS1/PS2 Ocean Water with Vertex Horizon Gradient
+    const oceanGeo = new THREE.PlaneGeometry(58, 44, 34, 24);
     oceanGeo.rotateX(-Math.PI / 2);
-    applyVertexGradient(oceanGeo, 'z', 0x879ba7, 0xd4eee0);
+    applyVertexGradient(oceanGeo, 'z', 0x90a8b8, 0xdcf4eb);
     const oceanBaseY = new Float32Array(oceanGeo.attributes.position.count);
     const oceanPos = oceanGeo.attributes.position;
     for (let i = 0; i < oceanPos.count; i++) {
@@ -758,10 +879,11 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
 
     const oceanMat = new THREE.MeshPhongMaterial({
       map: textures.ocean,
-      color: 0x38dcf5,
-      specular: 0xd8fcff,
-      shininess: 64,
-      emissive: 0x082c38,
+      color: 0x3ce4fa,
+      specular: 0xe6feff,
+      shininess: 78,
+      emissive: 0x092c38,
+      emissiveIntensity: 0.45,
       vertexColors: true,
       flatShading: true,
     });
@@ -769,8 +891,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     oceanMesh.position.set(0, -1.76, -21.5);
     vistaGroup.add(oceanMesh);
 
-    // Angular Animated Shoreline Surf Foam Ribbon washing over wet sand
-    const foamGeo = new THREE.PlaneGeometry(34, 0.42, 22, 2);
+    const foamGeo = new THREE.PlaneGeometry(34, 0.48, 22, 2);
     foamGeo.rotateX(-Math.PI / 2);
     const foamPos = foamGeo.attributes.position;
     const foamBaseZ = new Float32Array(foamPos.count);
@@ -778,14 +899,15 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       foamBaseZ[i] = foamPos.getZ(i);
     }
     const foamMat = new THREE.MeshBasicMaterial({
-      color: 0xc8e8e7,
+      color: 0xeafcff,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.36,
     });
     const foamRibbon = new THREE.Mesh(foamGeo, foamMat);
     foamRibbon.position.set(0, -1.66, -6.2);
     vistaGroup.add(foamRibbon);
 
+    // Animated Sun / Moon Glint Path Sparkling Across the Faceted Ocean Waves
     const glintCount = 48;
     const glintGeometry = new THREE.BufferGeometry();
     const glintPositions = new Float32Array(glintCount * 3);
@@ -795,7 +917,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     const glintBaseZ = new Float32Array(glintCount);
     for (let i = 0; i < glintCount; i++) {
       const depth = i / (glintCount - 1);
-      glintBaseX[i] = Math.sin(i * 12.9898) * (0.16 + depth * 1.2);
+      glintBaseX[i] = Math.sin(i * 12.9898) * (0.16 + depth * 1.15);
       glintBaseZ[i] = -7.2 - depth * 25;
       glintSeeds[i] = i * 2.39996;
       glintPositions[i * 3] = glintBaseX[i];
@@ -824,53 +946,68 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     sunGlints.frustumCulled = false;
     vistaGroup.add(sunGlints);
 
+    // Swaying PS1 Palms + Distant Kenney Cove Palms, Rocks, Sailboat & Fire Basket
     const palmLeft = createPs1PalmTree(textures, 1.15, 0.3);
-    palmLeft.position.set(-3.55, -1.65, -7.4);
+    palmLeft.position.set(-3.45, -1.65, -7.6);
     palmLeft.rotation.y = 0.45;
     vistaGroup.add(palmLeft);
 
     const palmRight = createPs1PalmTree(textures, 1.18, -0.28);
-    palmRight.position.set(3.55, -1.65, -7.7);
+    palmRight.position.set(3.55, -1.65, -7.8);
     palmRight.rotation.y = -0.35;
     vistaGroup.add(palmRight);
 
     const leftKenneyPalm = loadKenneyModel(
       '/models/pirate/palm-bend.glb',
       vistaGroup,
-      [-4.7, -1.68, -9.3],
+      [-4.15, -1.68, -9.3],
       3.9,
       0.25
     );
     const rightKenneyPalm = loadKenneyModel(
       '/models/pirate/palm-straight.glb',
       vistaGroup,
-      [4.7, -1.68, -9.5],
+      [4.2, -1.68, -9.5],
       3.8,
       -0.25
     );
     animatedModelPalms.push(leftKenneyPalm, rightKenneyPalm);
-    loadKenneyModel('/models/pirate/rocks-sand-a.glb', vistaGroup, [-5.15, -1.7, -7.6], 1.7, 0.2);
-    loadKenneyModel('/models/pirate/rocks-sand-b.glb', vistaGroup, [5.15, -1.7, -7.8], 1.55, -0.3);
-    loadKenneyModel('/models/watercraft/boat-sail.glb', vistaGroup, [3.25, -1.3, -23.2], 2.35, 0.55);
-    loadKenneyModel('/models/graveyard/fire-basket.glb', vistaGroup, [3.5, -1.68, -6.5], 1.15, 0.2);
+    loadKenneyModel('/models/pirate/rocks-sand-a.glb', vistaGroup, [-4.35, -1.7, -7.6], 1.65, 0.2);
+    loadKenneyModel('/models/pirate/rocks-sand-b.glb', vistaGroup, [4.45, -1.7, -7.8], 1.55, -0.3);
+    loadKenneyModel('/models/watercraft/boat-sail.glb', vistaGroup, [1.85, -1.42, -16.8], 2.05, 0.55);
+    loadKenneyModel('/models/graveyard/fire-basket.glb', vistaGroup, [2.65, -1.68, -6.5], 1.05, 0.2);
 
-    // Overhead Tiki Hut Thatch Awning
+    // Warm living ember glow sprite nested inside the beach fire basket
+    const beachFireGlowMat = new THREE.SpriteMaterial({
+      map: fireGlowTexture,
+      color: 0xff8c30,
+      transparent: true,
+      opacity: 0.45,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const beachFireGlow = new THREE.Sprite(beachFireGlowMat);
+    beachFireGlow.position.set(2.65, -0.86, -6.5);
+    beachFireGlow.scale.set(0.85, 1.05, 1);
+    vistaGroup.add(beachFireGlow);
+
     const awning = new THREE.Mesh(
       new THREE.PlaneGeometry(12, 2.8),
       new THREE.MeshPhongMaterial({
         map: textures.thatch,
+        color: 0xedd39d,
         flatShading: true,
         side: THREE.DoubleSide,
       })
     );
-    awning.position.set(0, 4.35, -1.3);
+    awning.position.set(0, 4.45, -1.3);
     awning.rotation.x = 0.55;
     vistaGroup.add(awning);
 
     scene.add(vistaGroup);
 
     // =========================================================================
-    // 4. RESTORED AUTHENTIC PS1/PS2 FACETED COCKTAIL GLASS & RICHLY TEXTURED DRINK
+    // 4. 1999 CG RAYTRACED CRYSTAL GLASSWARE + CONDENSATION + SPECULAR STREAKS
     // =========================================================================
     const cocktailRoot = new THREE.Group();
     cocktailRoot.position.set(0, 0.058, 0);
@@ -882,6 +1019,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     let umbrellaSpinner: THREE.Group | null = null;
     let umbrellaPivot: THREE.Group | null = null;
     let strawPivot: THREE.Group | null = null;
+    let activeEnvMaterials: THREE.MeshPhongMaterial[] = [];
     let interactiveTargets: THREE.Object3D[] = [];
     const disposableDrinkResources: Array<{ dispose: () => void }> = [];
 
@@ -898,6 +1036,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         disposableDrinkResources.pop()?.dispose();
       }
       interactiveTargets = [];
+      activeEnvMaterials = [];
       umbrellaSpinner = null;
       umbrellaPivot = null;
       strawPivot = null;
@@ -908,8 +1047,11 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       const preset = presetRef.current;
       const spec = getGlassGeometrySpec(preset.glassShape);
       const segs = spec.radialSegments;
+      const curEnvMap = studioEnvMaps[simRef.current.beachTime];
 
-      // 1. Multi-layered Faceted Retro Liquid Volumes textured with newly generated `liquidPulp`
+      causticMat.color.setHex(getCocktailCausticColor(preset.id));
+
+      // 1. Luminous Backlit Multi-Layered Retro Liquid Volumes
       liquidBodyGroup = new THREE.Group();
       const fullSlices = computeLayerSlices(
         preset.layers,
@@ -932,13 +1074,14 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
           new THREE.Vector2(Math.max(0.01, r1), h),
         ];
         const sliceGeo = track(new THREE.LatheGeometry(pts, segs));
+        const baseCol = new THREE.Color(slice.layer.color).lerp(new THREE.Color(0xffffff), 0.1);
         const sliceMat = track(
           new THREE.MeshPhongMaterial({
             map: textures.liquidPulp,
-            color: new THREE.Color(slice.layer.color),
-            emissive: new THREE.Color(slice.layer.color).multiplyScalar(0.28),
-            specular: 0xfff8e6,
-            shininess: 52,
+            color: baseCol,
+            emissive: new THREE.Color(slice.layer.color).multiplyScalar(0.42),
+            specular: 0xfffdf0,
+            shininess: 68,
             flatShading: true,
             transparent: slice.layer.opacity < 0.98,
             opacity: slice.layer.opacity,
@@ -950,7 +1093,6 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         liquidBodyGroup.add(mesh);
         interactiveTargets.push(mesh);
 
-        // Bottom cap on first slice
         if (idx === 0) {
           const botCap = new THREE.Mesh(
             track(new THREE.CircleGeometry(r0, segs)),
@@ -963,7 +1105,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       });
       cocktailRoot.add(liquidBodyGroup);
 
-      // 2. Steady Faceted Drink Top Surface (Meniscus + Low-Poly Ice Cubes / Retro Cream Swirl)
+      // 2. Steady Faceted Drink Top Surface (Meniscus + Crystal Ice / Foam Swirl)
       drinkSurfaceGroup = new THREE.Group();
       const topLayer = preset.layers[preset.layers.length - 1];
       const topR = spec.radiusAtY(spec.cavityTopY) * 0.95;
@@ -972,9 +1114,10 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       const meniscusMat = track(
         new THREE.MeshPhongMaterial({
           map: textures.liquidPulp,
-          color: new THREE.Color(topLayer.color).lerp(new THREE.Color(0xffffff), 0.16),
+          color: new THREE.Color(topLayer.color).lerp(new THREE.Color(0xffffff), 0.24),
+          emissive: new THREE.Color(topLayer.color).multiplyScalar(0.32),
           specular: 0xffffff,
-          shininess: 68,
+          shininess: 88,
           flatShading: true,
         })
       );
@@ -984,38 +1127,47 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       drinkSurfaceGroup.add(meniscus);
       interactiveTargets.push(meniscus);
 
-      // Sculpted steady low-poly surface toppings (ZERO clipping, ZERO vertex-snap jitter!)
       if (preset.topStyle === 'coconut-cream-swirl') {
         const creamMat = track(
           new THREE.MeshPhongMaterial({
             map: textures.liquidFoam,
-            color: 0xfffdf5,
+            color: 0xfffff8,
+            emissive: 0x3b362b,
             specular: 0xffffff,
-            shininess: 30,
+            shininess: 36,
             flatShading: true,
           })
         );
-        const tier1 = new THREE.Mesh(track(new THREE.CylinderGeometry(topR * 0.62, topR * 0.84, 0.16, 8)), creamMat);
+        const tier1 = new THREE.Mesh(
+          track(new THREE.CylinderGeometry(topR * 0.62, topR * 0.84, 0.16, 8)),
+          creamMat
+        );
         tier1.position.y = 0.08;
-        const tier2 = new THREE.Mesh(track(new THREE.CylinderGeometry(topR * 0.34, topR * 0.60, 0.15, 8)), creamMat);
+        const tier2 = new THREE.Mesh(
+          track(new THREE.CylinderGeometry(topR * 0.34, topR * 0.6, 0.15, 8)),
+          creamMat
+        );
         tier2.position.y = 0.22;
         const peak = new THREE.Mesh(track(new THREE.ConeGeometry(topR * 0.34, 0.22, 8)), creamMat);
         peak.position.y = 0.39;
         peak.rotation.z = 0.12;
         drinkSurfaceGroup.add(tier1, tier2, peak);
       } else {
-        // Chunky faceted PS1 crystal ice chunks resting cleanly on meniscus
         const surfIceMat = track(
           new THREE.MeshPhongMaterial({
             map: textures.ice,
-            color: 0xe6fbff,
+            envMap: curEnvMap,
+            reflectivity: 0.58,
+            combine: THREE.MixOperation,
+            color: 0xeefdff,
             specular: 0xffffff,
-            shininess: 92,
+            shininess: 115,
             flatShading: true,
             transparent: true,
-            opacity: 0.86,
+            opacity: 0.88,
           })
         );
+        activeEnvMaterials.push(surfIceMat);
         const iceCount = preset.defaultIceCount;
         for (let i = 0; i < iceCount; i++) {
           const ang = (i / iceCount) * Math.PI * 2 + 0.35;
@@ -1029,19 +1181,23 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       }
       cocktailRoot.add(drinkSurfaceGroup);
 
-      // 3. Submerged Faceted Ice Cubes visible through translucent crystal glass walls
+      // 3. Submerged Faceted Ice Cubes
       submergedIceGroup = new THREE.Group();
       const subIceMat = track(
         new THREE.MeshPhongMaterial({
           map: textures.ice,
-          color: 0xdaf6ff,
+          envMap: curEnvMap,
+          reflectivity: 0.45,
+          combine: THREE.MixOperation,
+          color: 0xe4f9ff,
           specular: 0xffffff,
-          shininess: 80,
+          shininess: 92,
           flatShading: true,
           transparent: true,
-          opacity: 0.65,
+          opacity: 0.68,
         })
       );
+      activeEnvMaterials.push(subIceMat);
       for (let i = 0; i < 4; i++) {
         const geo = track(new THREE.BoxGeometry(0.18, 0.18, 0.18));
         const mesh = new THREE.Mesh(geo, subIceMat);
@@ -1055,7 +1211,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       }
       cocktailRoot.add(submergedIceGroup);
 
-      // 4. Hard-Faceted PS1/PS2 Cut-Crystal Glassware mapped with newly generated `glassCrystal`
+      // 4. Cut-Crystal Glassware with Condensation Bump, Studio Reflection EnvMap, Rim & Specular Streaks
       const lathePts = spec.outerPoints.map((p) => new THREE.Vector2(p.r, p.y));
       const glassGeo = track(new THREE.LatheGeometry(lathePts, segs));
       const glassMat = track(
@@ -1063,24 +1219,27 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
           map: textures.glassCrystal,
           bumpMap: textures.glassCondensation,
           bumpScale: 0.028,
-          color: 0xdff7ff,
+          envMap: curEnvMap,
+          reflectivity: 0.68,
+          combine: THREE.MixOperation,
+          color: 0xecfbff,
           specular: 0xffffff,
-          shininess: 110,
+          shininess: 145,
           emissive: 0x102e3a,
-          emissiveIntensity: 0.18,
+          emissiveIntensity: 0.16,
           flatShading: true,
           transparent: true,
-          opacity: 0.26,
+          opacity: 0.28,
           depthWrite: false,
         })
       );
+      activeEnvMaterials.push(glassMat);
       const glassMesh = new THREE.Mesh(glassGeo, glassMat);
       glassMesh.renderOrder = 4;
       glassMesh.userData = { hitKind: 'drink' };
       cocktailRoot.add(glassMesh);
       interactiveTargets.push(glassMesh);
 
-      // Thick faceted crystal sham base so glass feels solid & authentic
       const shamGeo = track(
         new THREE.CylinderGeometry(spec.shamRadius, spec.shamRadius * 0.94, spec.shamHeight, segs)
       );
@@ -1089,21 +1248,25 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
           map: textures.glassCrystal,
           bumpMap: textures.glassRelief,
           bumpScale: 0.035,
-          color: 0xc2e9f5,
+          envMap: curEnvMap,
+          reflectivity: 0.62,
+          combine: THREE.MixOperation,
+          color: 0xd4f3fc,
           specular: 0xffffff,
-          shininess: 95,
+          shininess: 120,
           flatShading: true,
           transparent: true,
-          opacity: 0.44,
+          opacity: 0.48,
           depthWrite: false,
         })
       );
+      activeEnvMaterials.push(shamMat);
       const sham = new THREE.Mesh(shamGeo, shamMat);
       sham.position.y = spec.shamHeight * 0.5 + 0.01;
       sham.renderOrder = 3;
       cocktailRoot.add(sham);
 
-      // Subtle glass rim and specular streaks
+      // Subtle Glass Rim Highlight & Two Soft Specular Streaks (replaces harsh wireframe edges)
       const rimY = spec.rimY;
       const rimR = spec.rimRadius;
       const rimPoints = Array.from({ length: segs }, (_, index) => {
@@ -1113,9 +1276,9 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       const rimGeo = track(new THREE.BufferGeometry().setFromPoints(rimPoints));
       const rimMat = track(
         new THREE.LineBasicMaterial({
-          color: 0xc9f1f7,
+          color: 0xdaf8ff,
           transparent: true,
-          opacity: 0.16,
+          opacity: 0.22,
           depthWrite: false,
         })
       );
@@ -1125,9 +1288,9 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
 
       const streakMat = track(
         new THREE.MeshBasicMaterial({
-          color: 0xd9f5fa,
+          color: 0xe2f9ff,
           transparent: true,
-          opacity: 0.11,
+          opacity: 0.13,
           side: THREE.DoubleSide,
           depthWrite: false,
           blending: THREE.AdditiveBlending,
@@ -1135,26 +1298,34 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       );
       const streakHeight = rimY - spec.cavityBottomY;
       [
-        { angle: 0.48, width: 0.04, height: streakHeight * 0.82, y: spec.cavityBottomY + streakHeight * 0.48 },
-        { angle: -0.92, width: 0.026, height: streakHeight * 0.56, y: spec.cavityBottomY + streakHeight * 0.4 },
-      ].forEach(({ angle, width, height, y }) => {
-        const streak = new THREE.Mesh(track(new THREE.PlaneGeometry(width, height)), streakMat);
+        {
+          angle: 0.48,
+          width: 0.042,
+          height: streakHeight * 0.82,
+          y: spec.cavityBottomY + streakHeight * 0.48,
+        },
+        {
+          angle: -0.92,
+          width: 0.026,
+          height: streakHeight * 0.56,
+          y: spec.cavityBottomY + streakHeight * 0.4,
+        },
+      ].forEach(({ angle, width: streakW, height: streakH, y }) => {
+        const streak = new THREE.Mesh(track(new THREE.PlaneGeometry(streakW, streakH)), streakMat);
         streak.position.set(Math.sin(angle) * rimR * 0.96, y, Math.cos(angle) * rimR * 0.96);
         streak.rotation.y = angle;
         streak.renderOrder = 5;
         cocktailRoot.add(streak);
       });
 
-      // 5. Classic Retro Garnishes (Floral Hibiscus Paper Umbrella, Striped Bent Straw, Pineapple Wedge, Lime, Cherry)
-
-      // Striped bent retro drinking straw
+      // 5. Classic Retro Garnishes
       if (preset.garnishes.includes('straw')) {
         strawPivot = new THREE.Group();
         const strawMat = track(
           new THREE.MeshPhongMaterial({
             map: textures.straw,
             flatShading: true,
-            shininess: 24,
+            shininess: 28,
           })
         );
         const lowerStraw = new THREE.Mesh(
@@ -1174,7 +1345,6 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         cocktailRoot.add(strawPivot);
       }
 
-      // 12-Panel Pleated Hawaiian Hibiscus Floral Paper Umbrella (`textures.umbrella`)
       if (preset.garnishes.includes('umbrella')) {
         umbrellaPivot = new THREE.Group();
         umbrellaPivot.position.set(rimR * 0.24, rimY - 0.14, -0.08);
@@ -1182,7 +1352,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         umbrellaPivot.rotation.x = 0.1;
 
         const pickMat = track(
-          new THREE.MeshPhongMaterial({ color: 0xe2be78, flatShading: true })
+          new THREE.MeshPhongMaterial({ color: 0xedd090, flatShading: true })
         );
         const stick = new THREE.Mesh(
           track(new THREE.CylinderGeometry(0.018, 0.018, 1.38, 6)),
@@ -1201,7 +1371,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
             map: textures.umbrella,
             side: THREE.DoubleSide,
             flatShading: true,
-            shininess: 18,
+            shininess: 22,
           })
         );
         const canopy = new THREE.Mesh(canopyGeo, canopyMat);
@@ -1220,15 +1390,17 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         cocktailRoot.add(umbrellaPivot);
       }
 
-      // Chunky Low-Poly Golden Pineapple Wedge Perched on Right Rim
       if (preset.garnishes.includes('pineapple')) {
-        const pineGeo = track(new THREE.CylinderGeometry(0.36, 0.36, 0.11, 5, 1, false, 0, Math.PI * 0.65));
+        const pineGeo = track(
+          new THREE.CylinderGeometry(0.36, 0.36, 0.11, 5, 1, false, 0, Math.PI * 0.65)
+        );
         const pineMat = track(
           new THREE.MeshPhongMaterial({
             map: textures.pineapple,
-            color: 0xffd142,
+            color: 0xffdc55,
+            emissive: 0x3b2806,
             flatShading: true,
-            shininess: 28,
+            shininess: 32,
           })
         );
         const pine = new THREE.Mesh(pineGeo, pineMat);
@@ -1237,7 +1409,6 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         cocktailRoot.add(pine);
       }
 
-      // Crisp Alpha-Keyed Pixel Lime Wheel on Left Rim
       if (preset.garnishes.includes('mint-lime')) {
         const limeWheel = new THREE.Mesh(
           track(new THREE.CylinderGeometry(0.26, 0.26, 0.055, 8)),
@@ -1245,8 +1416,9 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
             new THREE.MeshPhongMaterial({
               map: textures.lime,
               alphaTest: 0.42,
+              emissive: 0x132b08,
               flatShading: true,
-              shininess: 24,
+              shininess: 28,
             })
           )
         );
@@ -1255,21 +1427,24 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         cocktailRoot.add(limeWheel);
       }
 
-      // Glossy Faceted Maraschino Cherry + Stem
       if (preset.garnishes.includes('cherry')) {
         const cherryGroup = new THREE.Group();
         const cherryMat = track(
           new THREE.MeshPhongMaterial({
-            color: 0xd9142c,
-            specular: 0xffd6dd,
-            shininess: 96,
+            color: 0xe61932,
+            envMap: curEnvMap,
+            reflectivity: 0.38,
+            combine: THREE.MixOperation,
+            specular: 0xffe0e6,
+            shininess: 120,
             flatShading: true,
           })
         );
+        activeEnvMaterials.push(cherryMat);
         const berry = new THREE.Mesh(track(new THREE.IcosahedronGeometry(0.115, 0)), cherryMat);
         const stem = new THREE.Mesh(
           track(new THREE.CylinderGeometry(0.011, 0.014, 0.3, 5)),
-          track(new THREE.MeshPhongMaterial({ color: 0x3b7a24, flatShading: true }))
+          track(new THREE.MeshPhongMaterial({ color: 0x458e2b, flatShading: true }))
         );
         stem.position.set(0.04, 0.19, 0);
         stem.rotation.z = -0.32;
@@ -1284,62 +1459,115 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     };
 
     const updateBeachLighting = (mood: BeachTimeId) => {
+      const cLm = counterLightMaps[mood];
+      const pLm = propLightMaps[mood];
+      const env = studioEnvMaps[mood];
+
+      counterTopMat.lightMap = cLm;
+      rattanMatMaterial.lightMap = cLm;
+      counterApronMat.lightMap = pLm;
+      bambooMat.lightMap = pLm;
+      coasterMat.lightMap = pLm;
+      totemSideMat.lightMap = pLm;
+      totemFrontMat.lightMap = pLm;
+      bowlMat.lightMap = pLm;
+      bowlIceMat.envMap = env;
+      activeEnvMaterials.forEach((m) => {
+        m.envMap = env;
+        m.needsUpdate = true;
+      });
+      [
+        counterTopMat,
+        rattanMatMaterial,
+        counterApronMat,
+        bambooMat,
+        coasterMat,
+        totemSideMat,
+        totemFrontMat,
+        bowlMat,
+        bowlIceMat,
+      ].forEach((m) => {
+        m.needsUpdate = true;
+      });
+
       if (mood === 'noon') {
         skyCylMat.map = textures.skyNoon;
         skyCylMat.color.setHex(0xffffff);
-        scene.background = new THREE.Color(0x3baae8);
-        scene.fog = new THREE.Fog(0x7fd8f5, 14, 38);
-        hemiLight.color.setHex(0xbbeeff);
-        hemiLight.groundColor.setHex(0x7a4b24);
-        hemiLight.intensity = 1.05;
-        sunLight.color.setHex(0xfff1c9);
-        sunLight.intensity = 1.45;
-        sunLight.position.set(4.5, 7.2, 4.4);
-        oceanMat.color.setHex(0x28d6f0);
-        oceanMat.specular.setHex(0xc8fbff);
-        oceanMat.emissive.setHex(0x09252c);
+        scene.background = new THREE.Color(0x4eb8f0);
+        scene.fog = new THREE.Fog(0x9be2fa, 18, 46);
+        hemiLight.color.setHex(0xd9f5ff);
+        hemiLight.groundColor.setHex(0xa86f3e);
+        hemiLight.intensity = 1.55;
+        sunLight.color.setHex(0xfff6dc);
+        sunLight.intensity = 1.95;
+        sunLight.position.set(4.6, 7.6, 4.2);
+        oceanBounceLight.color.setHex(0x68eeff);
+        oceanBounceLight.intensity = 1.05;
+        counterUpFill.color.setHex(0xffcb8c);
+        counterUpFill.intensity = 1.35;
+        causticPlane.position.set(-0.46, 0.06, -0.22);
+        causticPlane.rotation.z = 0.42;
+        causticMat.opacity = 0.78;
+        oceanMat.color.setHex(0x3ce4fa);
+        oceanMat.specular.setHex(0xe6feff);
+        oceanMat.emissive.setHex(0x092c38);
         oceanMat.emissiveIntensity = 0.45;
-        sandMat.color.setHex(0xfff0cc);
-        foamMat.color.setHex(0xeefcff);
+        sandMat.color.setHex(0xfff5dc);
+        foamMat.color.setHex(0xf4feff);
       } else if (mood === 'sunset') {
         skyCylMat.map = textures.skySunset;
-        skyCylMat.color.setHex(0xffdfd0);
-        scene.background = new THREE.Color(0xb85846);
-        scene.fog = new THREE.Fog(0xc18170, 18, 46);
-        hemiLight.color.setHex(0xffad7d);
-        hemiLight.groundColor.setHex(0x4d2a16);
-        hemiLight.intensity = 0.92;
-        sunLight.color.setHex(0xff8e42);
-        sunLight.intensity = 1.38;
-        sunLight.position.set(-4.8, 3.2, 2.5);
-        oceanMat.color.setHex(0x83c3d6);
+        skyCylMat.color.setHex(0xffe6d8);
+        scene.background = new THREE.Color(0xcc6b52);
+        scene.fog = new THREE.Fog(0xd88c72, 18, 46);
+        hemiLight.color.setHex(0xffbe94);
+        hemiLight.groundColor.setHex(0x7a4220);
+        hemiLight.intensity = 1.35;
+        sunLight.color.setHex(0xffa458);
+        sunLight.intensity = 1.82;
+        sunLight.position.set(-5.2, 3.6, 3.0);
+        oceanBounceLight.color.setHex(0xff8e68);
+        oceanBounceLight.intensity = 0.95;
+        counterUpFill.color.setHex(0xffa85e);
+        counterUpFill.intensity = 1.45;
+        causticPlane.position.set(0.54, 0.06, -0.18);
+        causticPlane.rotation.z = -0.35;
+        causticMat.opacity = 0.82;
+        oceanMat.color.setHex(0x6eb8cc);
         oceanMat.specular.setHex(0xffcf87);
-        oceanMat.emissive.setHex(0x4b8ea2);
-        oceanMat.emissiveIntensity = 1.45;
-        sandMat.color.setHex(0xffc796);
-        foamMat.color.setHex(0xffe2cc);
+        oceanMat.emissive.setHex(0x3c798c);
+        oceanMat.emissiveIntensity = 0.95;
+        sandMat.color.setHex(0xffd4a8);
+        foamMat.color.setHex(0xffe9d4);
       } else {
         skyCylMat.map = textures.skySunset;
-        skyCylMat.color.setHex(0x3f548c);
-        scene.background = new THREE.Color(0x131d38);
-        scene.fog = new THREE.Fog(0x435a73, 12, 42);
-        hemiLight.color.setHex(0x4c6aa8);
-        hemiLight.groundColor.setHex(0x2e1b0f);
-        hemiLight.intensity = 0.82;
-        sunLight.color.setHex(0x7ca6ff);
-        sunLight.intensity = 0.7;
-        sunLight.position.set(2.5, 5.0, 2.5);
-        oceanMat.color.setHex(0x7bb0cc);
-        oceanMat.specular.setHex(0xffbd79);
-        oceanMat.emissive.setHex(0x2f6383);
-        oceanMat.emissiveIntensity = 1.35;
-        sandMat.color.setHex(0x7d6c64);
-        foamMat.color.setHex(0x9acae6);
+        skyCylMat.color.setHex(0x5a7bc2);
+        scene.background = new THREE.Color(0x1e305a);
+        scene.fog = new THREE.Fog(0x364f78, 15, 44);
+        hemiLight.color.setHex(0x88abef);
+        hemiLight.groundColor.setHex(0x693e22);
+        hemiLight.intensity = 1.18;
+        sunLight.color.setHex(0xb4d2ff);
+        sunLight.intensity = 1.15;
+        sunLight.position.set(2.8, 5.4, 2.8);
+        oceanBounceLight.color.setHex(0x5aa4ea);
+        oceanBounceLight.intensity = 0.88;
+        counterUpFill.color.setHex(0xffae58);
+        counterUpFill.intensity = 2.15;
+        causticPlane.position.set(-0.26, 0.06, 0.22);
+        causticPlane.rotation.z = 0.95;
+        causticMat.opacity = 0.74;
+        oceanMat.color.setHex(0x5c9dc2);
+        oceanMat.specular.setHex(0xffc782);
+        oceanMat.emissive.setHex(0x285678);
+        oceanMat.emissiveIntensity = 1.05;
+        sandMat.color.setHex(0xb29a8c);
+        foamMat.color.setHex(0xc4e6ff);
       }
+
       sandMat.map = mood === 'noon' ? textures.sand : textures.wetSand;
       sandMat.needsUpdate = true;
-      beachFireLight.intensity = mood === 'torch' ? 1.8 : mood === 'sunset' ? 0.85 : 0.24;
-      postMat.uniforms.uBloomStrength.value = mood === 'torch' ? 0.3 : mood === 'sunset' ? 0.24 : 0.12;
+      beachFireLight.intensity = mood === 'torch' ? 1.85 : mood === 'sunset' ? 0.85 : 0.24;
+      postMat.uniforms.uBloomStrength.value = mood === 'torch' ? 0.28 : mood === 'sunset' ? 0.22 : 0.12;
       skyCylMat.needsUpdate = true;
     };
 
@@ -1351,7 +1579,6 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     rebuildDrink();
     updateBeachLighting(simRef.current.beachTime);
 
-    // Direct click raycasting on umbrella or cocktail glass (NO camera rotation!)
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
 
@@ -1370,11 +1597,9 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         simRef.current.umbrellaSpinVel = 13.5;
         simRef.current.umbrellaTilt = 0.2;
         audioRef.current?.playUmbrellaFlick();
-        setStatusMessage('拨动了扶桑花纸伞 · 十二折伞面随海风旋转');
       } else {
         simRef.current.stirEnergy = 1.0;
         audioRef.current?.playIceClink(2);
-        setStatusMessage('轻晃了折面水晶杯 · 冰块清脆碰撞');
       }
     };
 
@@ -1400,7 +1625,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
-      const nextH = Math.max(220, Math.min(448, Math.round((ps1ResW * h) / w)));
+      const nextH = Math.max(240, Math.min(448, Math.round((ps1ResW * h) / w)));
       ps1Target.setSize(ps1ResW, nextH);
       postMat.uniforms.uResolution.value.set(ps1ResW, nextH);
       postMat.uniforms.uTexelSize.value.set(1 / ps1ResW, 1 / nextH);
@@ -1467,6 +1692,10 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       drinkSurfaceGroup.scale.set(rScale, Math.max(0.6, 0.72 + 0.28 * lvl), rScale);
       drinkSurfaceGroup.rotation.y = sim.stirPhase * 0.32;
 
+      const causticPulse =
+        (0.94 + Math.sin(elapsed * 2.4 + sim.stirPhase) * 0.06) * (0.45 + 0.55 * lvl);
+      causticPlane.scale.set(causticPulse, causticPulse, 1);
+
       submergedIceGroup.children.forEach((chunk) => {
         const { baseAngle, radialFrac, depthOffset } = chunk.userData as {
           baseAngle: number;
@@ -1492,13 +1721,12 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         umbrellaPivot.rotation.z = -0.36 + Math.sin(elapsed * 12) * sim.umbrellaTilt;
       }
 
-      // Dynamic Angular Faceted PS1/PS2 Ocean Wave Swells (Crisp moving polygonal ridges!)
+      // Dynamic Angular Faceted PS1/PS2 Ocean Wave Swells
       for (let i = 0; i < oceanPos.count; i++) {
         const vx = oceanPos.getX(i);
         const vz = oceanPos.getZ(i);
         const waveA = Math.sin(vx * 0.38 + vz * 0.46 + elapsed * 2.0) * 0.34;
         const waveB = Math.cos(vx * 0.62 - vz * 0.36 - elapsed * 1.5) * 0.22;
-        // Sharpened angular crest harmonic for unmistakable PS1/PS2 faceted water ridges
         const ridge = (1.0 - Math.abs(Math.sin(vz * 0.56 + elapsed * 1.4 + vx * 0.16))) * 0.28;
         oceanPos.setY(i, oceanBaseY[i] + waveA + waveB + ridge);
       }
@@ -1507,6 +1735,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       textures.ocean.offset.x = (elapsed * 0.038) % 1;
       textures.ocean.offset.y = (elapsed * 0.062) % 1;
 
+      // Twinkling Ocean Sun / Moon Reflection Glints Riding the Wave Surface
       const glintStrength = sim.beachTime === 'noon' ? 0.92 : sim.beachTime === 'sunset' ? 1.8 : 1.5;
       for (let i = 0; i < glintCount; i++) {
         glintTint.setHex(
@@ -1541,7 +1770,6 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       glintPositionAttr.needsUpdate = true;
       glintColorAttr.needsUpdate = true;
 
-      // Animated angular shoreline surf foam washing onto coral beach
       for (let i = 0; i < foamPos.count; i++) {
         const fx = foamPos.getX(i);
         const wash = Math.sin(elapsed * 1.55 + fx * 0.32) * 0.42;
@@ -1549,7 +1777,6 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
       }
       foamPos.needsUpdate = true;
 
-      // Gentle sea-breeze palm frond sway
       const pLeftCrown = palmLeft.userData.crown as THREE.Group | undefined;
       const pRightCrown = palmRight.userData.crown as THREE.Group | undefined;
       if (pLeftCrown) pLeftCrown.rotation.z = Math.sin(elapsed * 1.2) * 0.06;
@@ -1558,18 +1785,20 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         palm.rotation.z = Math.sin(elapsed * 0.85 + index * 1.7) * 0.025;
       });
 
-      // Dynamic Retro Low-Poly Tiki Torch Flames & Warm Flicker Lights
-      const torchScale = sim.beachTime === 'torch' ? 0.9 : sim.beachTime === 'sunset' ? 0.82 : 0.68;
+      const torchScale = sim.beachTime === 'torch' ? 0.94 : sim.beachTime === 'sunset' ? 0.86 : 0.72;
       leftTorch.update(elapsed, torchScale);
       rightTorch.update(elapsed, torchScale);
 
       const flickA = Math.sin(elapsed * 11) * 0.16 + Math.cos(elapsed * 17) * 0.08;
       const flickB = Math.cos(elapsed * 10) * 0.16 + Math.sin(elapsed * 18) * 0.08;
-      const baseTorchI = sim.beachTime === 'torch' ? 2.4 : sim.beachTime === 'sunset' ? 1.25 : 0.45;
-      leftTorchLight.intensity = baseTorchI + flickA * baseTorchI * 0.4;
-      rightTorchLight.intensity = baseTorchI + flickB * baseTorchI * 0.4;
-      const beachFireBase = sim.beachTime === 'torch' ? 1.8 : sim.beachTime === 'sunset' ? 0.85 : 0.24;
+      const baseTorchI = sim.beachTime === 'torch' ? 3.3 : sim.beachTime === 'sunset' ? 1.5 : 0.65;
+      leftTorchLight.intensity = baseTorchI + flickA * baseTorchI * 0.35;
+      rightTorchLight.intensity = baseTorchI + flickB * baseTorchI * 0.35;
+      const beachFireBase = sim.beachTime === 'torch' ? 2.15 : sim.beachTime === 'sunset' ? 0.95 : 0.28;
       beachFireLight.intensity = beachFireBase * (0.92 + flickA * 0.18);
+      const fireGlowBaseOpacity = sim.beachTime === 'torch' ? 0.82 : sim.beachTime === 'sunset' ? 0.58 : 0.24;
+      beachFireGlowMat.opacity = fireGlowBaseOpacity + Math.max(0, flickA) * 0.14;
+      beachFireGlow.scale.set(0.82 + flickB * 0.12, 1.02 + flickA * 0.18, 1);
 
       renderPs1Pass();
 
@@ -1610,6 +1839,11 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         })
       );
       fireGlowTexture.dispose();
+      beachFireGlowMat.dispose();
+      Object.values(counterLightMaps).forEach((t) => t.dispose());
+      Object.values(propLightMaps).forEach((t) => t.dispose());
+      Object.values(studioEnvMaps).forEach((t) => t.dispose());
+      causticTex.dispose();
       sceneHandlesRef.current = null;
       ps1Target.dispose();
       postMat.dispose();
@@ -1629,24 +1863,20 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     simRef.current.stirEnergy = 0.65;
     audioRef.current?.playPour();
     audioRef.current?.playIceClink(2);
-    setStatusMessage(`已呈上 ${preset.nameZh} (${preset.abvLabel}) · ${preset.flavorNote}`);
+    setStatusMessage(preset.nameZh);
   };
 
   const handleSip = () => {
     if (liquidLevel <= 0.05) {
       audioRef.current?.playSip(true);
-      setStatusMessage('酒杯已经喝空啦 · 请点击「续酒」');
+      setStatusMessage('已空杯');
       return;
     }
     const next = sipLiquidLevel(liquidLevel, 0.2);
     setLiquidLevel(next);
     simRef.current.stirEnergy = 0.4;
     audioRef.current?.playSip(next <= 0.1);
-    setStatusMessage(
-      next <= 0.1
-        ? '啜饮至杯底 · 可随时点击「续酒」'
-        : `啜饮了一口 ${activePreset.nameZh} · 剩余酒液 ${Math.round(next * 100)}%`
-    );
+    setStatusMessage(next <= 0.1 ? '已空杯' : activePreset.nameZh);
   };
 
   const handleRefill = () => {
@@ -1654,17 +1884,16 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
     simRef.current.stirEnergy = 0.85;
     audioRef.current?.playPour();
     audioRef.current?.playIceClink(2);
-    setStatusMessage(`已续满 ${activePreset.nameZh} · 折面水晶杯重现清凉层次`);
+    setStatusMessage(activePreset.nameZh);
   };
 
   const handleFlickUmbrella = () => {
     simRef.current.umbrellaSpinVel = 14.0;
     simRef.current.umbrellaTilt = 0.22;
     audioRef.current?.playUmbrellaFlick();
-    setStatusMessage('拨动了扶桑花纸伞 · 十二折伞面随海风旋转');
   };
 
-  const moodLabel = beachTime === 'noon' ? '晴朗正午' : beachTime === 'sunset' ? '金红落日' : '夏夜火把';
+  const moodLabel = beachTime === 'noon' ? '正午' : beachTime === 'sunset' ? '落日' : '夜火把';
 
   return (
     <div
@@ -1745,7 +1974,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
                     {beachTime === m && <PixelRadioDot />}
                   </span>
                   <span>
-                    {m === 'noon' ? '晴朗正午海滩' : m === 'sunset' ? '金红落日湾' : '夏夜海滩火把'}
+                    {m === 'noon' ? '正午' : m === 'sunset' ? '落日' : '夜火把'}
                   </span>
                 </button>
               ))}
@@ -1761,7 +1990,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
                 <span className="w-3 inline-flex items-center justify-center">
                   {soundEnabled && <PixelCheckmark />}
                 </span>
-                <span>海浪与冰块音效</span>
+                <span>音效</span>
               </button>
             </div>
           )}
@@ -1797,7 +2026,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         </div>
       </div>
 
-      {/* Main Retro PS1/PS2 3D Viewport (Fixed Elevated View, Click-Interactive) */}
+      {/* Main 1999 CG / PS2 Telephoto 3D Viewport */}
       <div className="flex-1 min-h-0 p-1 flex flex-col">
         <div
           ref={canvasMountRef}
@@ -1806,7 +2035,7 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         />
       </div>
 
-      {/* Streamlined Single-Row Bar Control Strip (NO camera rotation controls!) */}
+      {/* Streamlined Single-Row Bar Control Strip */}
       <div className="px-1 pb-1 pt-0.5 bg-[#D4D0C8] shrink-0">
         <div className="flex items-center gap-0.5 flex-nowrap overflow-x-auto">
           {TROPICAL_COCKTAILS.map((c) => {
@@ -1873,11 +2102,11 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
         <div className="win2k-sunken px-1.5 h-[17px] flex items-center flex-1 truncate">
           {statusMessage}
         </div>
-        <div className="win2k-sunken px-1.5 h-[17px] flex items-center w-[98px] shrink-0 truncate">
+        <div className="win2k-sunken px-1.5 h-[17px] flex items-center w-[88px] shrink-0 truncate">
           液位 {Math.round(liquidLevel * 100)}%
         </div>
-        <div className="win2k-sunken px-1.5 h-[17px] flex items-center w-[112px] shrink-0 truncate">
-          {moodLabel} · PS1/2 3D
+        <div className="win2k-sunken px-1.5 h-[17px] flex items-center w-[72px] shrink-0 truncate">
+          {moodLabel}
         </div>
       </div>
 
@@ -1887,11 +2116,11 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
           onClick={() => setShowAbout(false)}
         >
           <div
-            className="win2k-window bg-[#D4D0C8] w-[320px] p-1"
+            className="win2k-window bg-[#D4D0C8] w-[260px] p-1"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="win2k-titlebar-active h-[20px] px-1.5 flex items-center justify-between text-white font-bold">
-              <span>关于 Royal Hawaii 3D</span>
+              <span>关于 Royal Hawaii</span>
               <button
                 type="button"
                 className="win2k-raised bg-[#D4D0C8] text-black w-[15px] h-[14px] flex items-center justify-center text-[10px]"
@@ -1900,14 +2129,11 @@ export const RoyalHawaiiApp: React.FC<RoyalHawaiiAppProps> = ({
                 ×
               </button>
             </div>
-            <div className="p-3 flex gap-3 items-start">
+            <div className="p-3 flex gap-3 items-center">
               <Win2kIcon kind="royal-hawaii" size={32} />
-              <div className="space-y-1.5 leading-relaxed">
-                <div className="font-bold">Royal Hawaii 3D Lounge (Build 2000.4)</div>
-                <div>经典 PS1/PS2 硬朗低多边形折面引擎 · 16-bit Bayer 抖动</div>
-                <div className="text-[#404040]">
-                  收录 4 款经典热带鸡尾酒、高角度固定观景吧台视角、全套千禧年像素贴图与动态棱角起伏海浪。
-                </div>
+              <div className="space-y-1">
+                <div className="font-bold">Royal Hawaii</div>
+                <div className="text-[#404040]">版本 1.0</div>
               </div>
             </div>
             <div className="px-3 pb-2.5 flex justify-end">
