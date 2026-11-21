@@ -226,9 +226,15 @@ export const WmpStepFrameIcon: React.FC<{ disabled?: boolean }> = ({ disabled = 
     aria-hidden="true"
     className={`inline-block shrink-0 ${disabled ? 'opacity-45' : ''}`}
   >
-    <rect x="3" y="4" width="2" height="8" fill="#505050" />
-    <path d="M7 4h1v8H7zM8 5h1v6H8zM9 6h1v4H9zM10 7h1v2h-1z" fill="#505050" />
-    <rect x="12" y="4" width="2" height="8" fill="#505050" />
+    <rect x="2" y="2" width="3" height="3" fill="#505050" />
+    <rect x="7" y="2" width="3" height="3" fill="#505050" />
+    <rect x="12" y="2" width="3" height="3" fill="#505050" />
+    <rect x="2" y="7" width="3" height="3" fill="#505050" />
+    <rect x="7" y="7" width="3" height="3" fill="#505050" />
+    <rect x="12" y="7" width="3" height="3" fill="#505050" />
+    <rect x="2" y="12" width="3" height="3" fill="#505050" />
+    <rect x="7" y="12" width="3" height="3" fill="#505050" />
+    <rect x="12" y="12" width="3" height="3" fill="#505050" />
   </svg>
 );
 
@@ -261,47 +267,41 @@ export const WmpSpeakerIcon: React.FC<{ muted: boolean }> = ({ muted }) => (
   </svg>
 );
 
-/**
- * Classic Windows Media Player 6.4 / mplayer2 stopped-state emblem for the #000000 viewport.
- */
 export const WmpClassicLogo: React.FC = () => (
-  <div className="flex flex-col items-center justify-center gap-3 select-none pointer-events-none px-4">
+  <div className="flex items-center justify-center select-none pointer-events-none px-4">
     <svg
-      width="108"
-      height="88"
-      viewBox="0 0 54 44"
+      width="270"
+      height="82"
+      viewBox="0 0 270 82"
       shapeRendering="crispEdges"
       aria-hidden="true"
     >
-      {/* Classic 3D tilted clapper / Windows Media 6.4 reel emblem */}
-      <rect x="6" y="14" width="42" height="24" fill="#202830" />
-      <rect x="7" y="15" width="40" height="22" fill="#0D141C" />
-      <path d="M6 14h42v1H6zM6 14h1v24H6z" fill="#8090A0" />
-      <path d="M6 37h42v1H6zM47 14h1v24h-1z" fill="#000000" />
-      {/* Clapper top stripe */}
-      <path d="M6 8l40-5 2 6-40 5-2-6z" fill="#303840" />
-      <path d="M10 7h5v5h-5zM20 6h5v5h-5zM30 5h5v5h-5zM40 4h5v5h-5z" fill="#DCDCDC" />
-      {/* Classic 3-2-1 RGB pixel blocks matching mplayer2/MPC heritage */}
-      <path
-        d="M11 19h8v2h-8zM17 21h2v3h-2zM13 24h5v2h-5zM17 26h2v4h-2zM11 30h8v2h-8z"
-        fill="#E53935"
-      />
-      <path
-        d="M23 19h8v2h-8zM29 21h2v4h-2zM23 24h8v2h-8zM23 26h2v4h-2zM23 30h8v2h-8z"
-        fill="#2979FF"
-      />
-      <path
-        d="M36 19h4v2h-4zM38 21h2v9h-2zM35 30h8v2h-8z"
-        fill="#43A047"
-      />
+      <path d="M5 30h46v42H5z" fill="none" stroke="#E87522" strokeWidth="5" />
+      <path d="M28 5h47v42H28z" fill="none" stroke="#42A845" strokeWidth="5" />
+      <path d="M34 34h48v42H34z" fill="none" stroke="#1687D4" strokeWidth="5" />
+      <path d="M61 9h47v42H61z" fill="none" stroke="#F2C230" strokeWidth="5" />
+      <path d="M72 18l11-2v10l-11 2zM86 15l11-2v11l-11 2z" fill="#FFFFFF" />
+      <path d="M72 31l11-2v10l-11 2zM86 28l11-2v11l-11 2z" fill="#FFFFFF" />
+      <text
+        x="119"
+        y="49"
+        fill="#FFFFFF"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontSize="20"
+        fontWeight="bold"
+      >
+        Windows Media
+      </text>
+      <text
+        x="253"
+        y="40"
+        fill="#FFFFFF"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontSize="8"
+        fontWeight="bold"
+      >
+        ™
+      </text>
     </svg>
-    <div className="text-center space-y-1">
-      <div className="text-[13px] font-bold tracking-wide text-[#DCDCDC]">
-        Windows Media Player 6.4
-      </div>
-      <div className="text-[11px] text-[#8090A0]">
-        千禧热带风情映像 · 点击“播放”按钮或画面开始放映
-      </div>
-    </div>
   </div>
 );

@@ -1,5 +1,10 @@
 import * as THREE from 'three';
+import bambooBarAlbedoUrl from '../assets/images/bamboo_bar_albedo_1794731022256.jpg';
+import bambooBarRoughnessUrl from '../assets/images/bamboo_bar_roughness_1794731024445.jpg';
+import cocktailFoamUrl from '../assets/images/cocktail_pulp_foam_albedo_1794754880838.jpg';
+import crystalHeightUrl from '../assets/images/cut_crystal_glass_height_1794754882146.jpg';
 import driftwoodBarUrl from '../assets/images/ps1_driftwood_bar_tex_1795099212018.jpg';
+import glassCondensationUrl from '../assets/images/glass_condensation_roughness_1794731026343.jpg';
 import oceanWavesUrl from '../assets/images/ps1_ocean_waves_tex_1795099193568.jpg';
 import beachSandShellsUrl from '../assets/images/ps1_beach_sand_shells_tex_1795099189022.jpg';
 import cocktailGlassUrl from '../assets/images/ps1_cocktail_glass_tex_1795099135764.jpg';
@@ -12,6 +17,7 @@ import skyNoonUrl from '../assets/images/ps1_beach_skybox_noon_1794753409684.jpg
 import skySunsetUrl from '../assets/images/ps1_beach_skybox_sunset_1794753405332.jpg';
 import thatchAwningUrl from '../assets/images/ps1_thatch_awning_1794753413149.jpg';
 import cocktailAtlasUrl from '../assets/images/ps1_cocktail_ice_fruit_1794753410881.jpg';
+import wetSandUrl from '../assets/images/wet_coral_sand_albedo_1794754882862.jpg';
 
 const BAYER_4X4 = [
   [0, 8, 2, 10],
@@ -178,6 +184,8 @@ function createStripeStrawTexture(): THREE.CanvasTexture {
 
 export interface Ps1TextureSet {
   barWood: THREE.CanvasTexture;
+  barBamboo: THREE.CanvasTexture;
+  barRelief: THREE.CanvasTexture;
   rattanMat: THREE.CanvasTexture;
   coaster: THREE.CanvasTexture;
   totemFront: THREE.CanvasTexture;
@@ -188,7 +196,11 @@ export interface Ps1TextureSet {
   skySunset: THREE.CanvasTexture;
   ocean: THREE.CanvasTexture;
   sand: THREE.CanvasTexture;
+  wetSand: THREE.CanvasTexture;
+  liquidFoam: THREE.CanvasTexture;
   glassCrystal: THREE.CanvasTexture;
+  glassRelief: THREE.CanvasTexture;
+  glassCondensation: THREE.CanvasTexture;
   liquidPulp: THREE.CanvasTexture;
   ice: THREE.CanvasTexture;
   umbrella: THREE.CanvasTexture;
@@ -205,6 +217,20 @@ export function createPs1TextureSet(): Ps1TextureSet {
     fallbackColor: '#663418',
     quantStep: 8,
   });
+
+  const barBamboo = loadPs1Texture(bambooBarAlbedoUrl, 128, 128, {
+    repeatX: 3.2,
+    repeatY: 1.2,
+    fallbackColor: '#8B5B32',
+    quantStep: 10,
+  });
+  const barRelief = loadPs1Texture(bambooBarRoughnessUrl, 96, 96, {
+    repeatX: 3.2,
+    repeatY: 1.2,
+    fallbackColor: '#777777',
+    quantStep: 12,
+  });
+  barRelief.colorSpace = THREE.NoColorSpace;
 
   const rattanMat = loadPs1Texture(rattanCoasterUrl, 96, 96, {
     repeatX: 2.4,
@@ -278,6 +304,19 @@ export function createPs1TextureSet(): Ps1TextureSet {
     fallbackColor: '#E8CA88',
     quantStep: 8,
   });
+  const wetSand = loadPs1Texture(wetSandUrl, 128, 96, {
+    repeatX: 5,
+    repeatY: 1.5,
+    fallbackColor: '#A87955',
+    quantStep: 8,
+  });
+  const liquidFoam = loadPs1Texture(cocktailFoamUrl, 96, 96, {
+    repeatX: 2,
+    repeatY: 2,
+    fallbackColor: '#FFF4DF',
+    quantStep: 8,
+    highKeyLuminance: true,
+  });
 
   const glassCrystal = loadPs1Texture(cocktailGlassUrl, 128, 128, {
     repeatX: 2,
@@ -286,6 +325,20 @@ export function createPs1TextureSet(): Ps1TextureSet {
     quantStep: 10,
     highKeyLuminance: true,
   });
+  const glassRelief = loadPs1Texture(crystalHeightUrl, 128, 128, {
+    repeatX: 2,
+    repeatY: 1,
+    fallbackColor: '#808080',
+    quantStep: 12,
+  });
+  glassRelief.colorSpace = THREE.NoColorSpace;
+  const glassCondensation = loadPs1Texture(glassCondensationUrl, 128, 128, {
+    repeatX: 2,
+    repeatY: 1,
+    fallbackColor: '#B0B0B0',
+    quantStep: 12,
+  });
+  glassCondensation.colorSpace = THREE.NoColorSpace;
 
   const liquidPulp = loadPs1Texture(tropicalLiquidUrl, 128, 128, {
     repeatX: 2,
@@ -326,6 +379,8 @@ export function createPs1TextureSet(): Ps1TextureSet {
 
   const all = [
     barWood,
+    barBamboo,
+    barRelief,
     rattanMat,
     coaster,
     totemFront,
@@ -336,7 +391,11 @@ export function createPs1TextureSet(): Ps1TextureSet {
     skySunset,
     ocean,
     sand,
+    wetSand,
+    liquidFoam,
     glassCrystal,
+    glassRelief,
+    glassCondensation,
     liquidPulp,
     ice,
     umbrella,
@@ -347,6 +406,8 @@ export function createPs1TextureSet(): Ps1TextureSet {
 
   return {
     barWood,
+    barBamboo,
+    barRelief,
     rattanMat,
     coaster,
     totemFront,
@@ -357,7 +418,11 @@ export function createPs1TextureSet(): Ps1TextureSet {
     skySunset,
     ocean,
     sand,
+    wetSand,
+    liquidFoam,
     glassCrystal,
+    glassRelief,
+    glassCondensation,
     liquidPulp,
     ice,
     umbrella,

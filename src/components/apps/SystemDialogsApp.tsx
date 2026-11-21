@@ -144,25 +144,22 @@ export const DisplayPropsApp: React.FC<DisplayPropsAppProps> = ({
                 </option>
               ))}
             </select>
-            <div className="text-[11px] text-[#404040]">
-              选择“Windows 标准”可体验最纯正的 Windows 2000 暖灰蓝渐变配色。
-            </div>
           </div>
         )}
 
         {tab === 'settings' && (
           <div className="space-y-2.5 text-[12px]">
-            <div>显示: 17" 球面荫罩彩色监视器 (0.25mm 点距)</div>
+            <div>显示: 17" 彩色监视器</div>
             <fieldset className="w2k-fieldset">
               <legend>颜色(C)</legend>
-              <div className="text-[12px]">真彩色 (32 位) · 宋体/Tahoma 像素点阵</div>
+              <div className="text-[12px]">真彩色 (32 位)</div>
             </fieldset>
             <fieldset className="w2k-fieldset">
-              <legend>2000 显像管光学观感</legend>
+              <legend>CRT 显示</legend>
               <Win2kCheckbox
                 checked={draftCrt}
                 onChange={setDraftCrt}
-                label="启用 2000 年球面 PC CRT 质感（荧光粉辉光、RGB 荫罩点阵与伽马黑位）"
+                label="启用 CRT 显示效果"
               />
             </fieldset>
           </div>
